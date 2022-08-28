@@ -14,6 +14,7 @@ type Config struct {
 	Redis struct {
 		Host string `yaml:"host"`
 		Port string `yaml:"port"`
+		Db   int    `yaml:"db"`
 	} `yaml:"redis"`
 	Logger struct {
 		LogLevel string `yaml:"log-level"`
