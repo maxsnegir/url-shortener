@@ -19,15 +19,15 @@ func (e InternalServerError) Error() string {
 }
 
 type NotFoundError struct {
-	Url string
+	URL string
 }
 
 func (e NotFoundError) Error() string {
-	return fmt.Sprintf("%s not found", e.Url)
+	return fmt.Sprintf("%s not found", e.URL)
 }
 
 type RequestParamsError struct{}
 
 func (e RequestParamsError) Error() string {
-	return fmt.Sprint("Url in request body is missing")
+	return "URL in request body is missing"
 }

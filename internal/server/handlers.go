@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func (s *server) SetUrlHandler() http.HandlerFunc {
+func (s *server) SetURLHandler() http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -20,32 +20,33 @@ func (s *server) SetUrlHandler() http.HandlerFunc {
 			s.Response(w, r, http.StatusUnprocessableEntity, nil, RequestParamsError{})
 			return
 		}
-		stringUrl := string(url)
-		if !s.Shortener.UrlIsValid(stringUrl) {
-			s.Response(w, r, http.StatusUnprocessableEntity, nil, services.UrlIsNotValidError{Url: stringUrl})
+		stringURL := string(url)
+		if !s.Shortener.URLIsValid(stringURL) {
+			s.Response(w, r, http.StatusUnprocessableEntity, nil, services.URLIsNotValidError{Url: stringURL})
 			return
 		}
-		shortUrlId, err := s.Shortener.SetUrl(stringUrl, 0) // Пока нет тз, пусть ссылка хранится вечно
+		// Пока нет тз, пусть ссылка хранится вечно(подразумевалась для редиса)
+		shortURLID, err := s.Shortener.SetURL(stringURL, 0)
 		if err != nil {
 			s.Logger.Error(err)
 			s.Response(w, r, http.StatusInternalServerError, nil, InternalServerError{})
 			return
 		}
-		s.Response(w, r, http.StatusOK, shortUrlId, nil)
+		s.Response(w, r, http.StatusOK, shortURLID, nil)
 	}
 }
 
-func (s *server) GetUrlByIdHandler() http.HandlerFunc {
+func (s *server) GetURLByIDHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			s.Response(w, r, http.StatusMethodNotAllowed, nil, MethodNotAllowedError{r.Method})
 			return
 		}
 		urlId := strings.Split(r.URL.Path, "/")[1]
-		originalUrl, err := s.Shortener.GetUrlById(urlId)
+		originalUrl, err := s.Shortener.GetURLByID(urlId)
 		if err != nil {
 			switch err.(type) {
-			case services.OriginalUrlNotFound:
+			case services.OriginalURLNotFound:
 				s.Response(w, r, http.StatusNotFound, nil, err)
 			default:
 				s.Logger.Error(err)
