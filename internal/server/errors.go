@@ -18,6 +18,14 @@ func (e InternalServerError) Error() string {
 	return "Internal Server Error"
 }
 
+type NotFoundError struct {
+	Url string
+}
+
+func (e NotFoundError) Error() string {
+	return fmt.Sprintf("%s not found", e.Url)
+}
+
 type RequestParamsError struct{}
 
 func (e RequestParamsError) Error() string {

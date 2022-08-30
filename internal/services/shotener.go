@@ -32,6 +32,9 @@ func (s *Shortener) SetUrl(originalUrl string, expires time.Duration) (string, e
 func (s *Shortener) GetUrlById(urlId string) (string, error) {
 	originalUrl, err := s.redisClient.Get(urlId).Result()
 	if err != nil {
+		if err == redis.Nil {
+			return "", OriginalUrlNotFound{urlId}
+		}
 		return "", err
 	}
 	return originalUrl, nil

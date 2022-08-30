@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func (s *server) ShortUrlHandler() http.HandlerFunc {
+func (s *server) SetUrlHandler() http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -25,7 +25,7 @@ func (s *server) ShortUrlHandler() http.HandlerFunc {
 			s.Response(w, r, http.StatusUnprocessableEntity, nil, services.UrlIsNotValidError{Url: stringUrl})
 			return
 		}
-		shortUrlId, err := s.Shortener.SetUrl(stringUrl, 0)
+		shortUrlId, err := s.Shortener.SetUrl(stringUrl, 0) // Пока нет тз, пусть ссылка хранится вечно
 		if err != nil {
 			s.Logger.Error(err)
 			s.Response(w, r, http.StatusInternalServerError, nil, InternalServerError{})
@@ -44,10 +44,22 @@ func (s *server) GetUrlByIdHandler() http.HandlerFunc {
 		urlId := strings.Split(r.URL.Path, "/")[1]
 		originalUrl, err := s.Shortener.GetUrlById(urlId)
 		if err != nil {
-			s.Response(w, r, http.StatusInternalServerError, nil, InternalServerError{})
+			switch err.(type) {
+			case services.OriginalUrlNotFound:
+				s.Response(w, r, http.StatusNotFound, nil, err)
+			default:
+				s.Logger.Error(err)
+				s.Response(w, r, http.StatusInternalServerError, nil, InternalServerError{})
+			}
 			return
 		}
 		w.Header().Add("Location", originalUrl)
 		s.Response(w, r, http.StatusTemporaryRedirect, nil, nil)
+	}
+}
+
+func NotFoundHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, NotFoundError{r.URL.String()}.Error(), http.StatusNotFound)
 	}
 }

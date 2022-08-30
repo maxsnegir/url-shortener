@@ -12,28 +12,18 @@ import (
 
 type server struct {
 	// Хелперы
-	config config.Config
+	Config config.Config
 	Logger *logrus.Logger
-	router *http.ServeMux
+	// Роутинг
+	Routes        []Router
+	DefaultRouter http.HandlerFunc
 	// Сервисы приложения
 	Shortener *services.Shortener
 }
 
-func (s *server) Start() error {
-
-	s.configureRouter()
-	serverAdd := fmt.Sprintf("%s:%s", s.config.Server.Host, s.config.Server.Port)
-	s.Logger.Infof("Server is starting on %s", serverAdd)
-	err := http.ListenAndServe(serverAdd, s.router)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (s *server) configureRouter() {
-	s.router.Handle("/{:id}", MiddlewareConveyor(s.GetUrlByIdHandler()))
-	s.router.Handle("/", MiddlewareConveyor(s.ShortUrlHandler()))
+	s.Handler(`^/$`, s.SetUrlHandler())
+	s.Handler(`^/.*?/$`, s.GetUrlByIdHandler())
 }
 
 func (s *server) Response(w http.ResponseWriter, r *http.Request, code int, data interface{}, err error) {
@@ -51,12 +41,23 @@ func (s *server) Response(w http.ResponseWriter, r *http.Request, code int, data
 	s.Logger.Infof("%s::%s::%v", r.RequestURI, r.Method, code)
 }
 
+func (s *server) Start() error {
+	s.configureRouter()
+	serverAddress := fmt.Sprintf("%s:%s", s.Config.Server.Host, s.Config.Server.Port)
+	s.Logger.Infof("Server is starting on %s", serverAddress)
+	err := http.ListenAndServe(serverAddress, s)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func NewServer(cfg config.Config, logger *logrus.Logger, redisClient *redis.Client) *server {
 	shortener := services.NewShortener(redisClient)
 	return &server{
-		config:    cfg,
-		Logger:    logger,
-		Shortener: shortener,
-		router:    http.NewServeMux(),
+		Config:        cfg,
+		Logger:        logger,
+		Shortener:     shortener,
+		DefaultRouter: NotFoundHandler(),
 	}
 }
