@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"gopkg.in/yaml.v2"
 	"log"
 	"os"
@@ -8,13 +9,15 @@ import (
 
 type Config struct {
 	Server struct {
-		Port string `yaml:"port"`
-		Host string `yaml:"host"`
+		Port        string `yaml:"port"`
+		Host        string `yaml:"host"`
+		Schema      string `yaml:"schema"`
+		FullAddress string
 	} `yaml:"server"`
 	Redis struct {
 		Host string `yaml:"host"`
 		Port string `yaml:"port"`
-		Db   int    `yaml:"db"`
+		DB   int    `yaml:"databases"`
 	} `yaml:"redis"`
 	Logger struct {
 		LogLevel string `yaml:"log-level"`
@@ -39,5 +42,7 @@ func NewConfig(path string) Config {
 	if err != nil {
 		log.Fatal(err)
 	}
+	fullAddress := fmt.Sprintf("%s%s:%s", cfg.Server.Schema, cfg.Server.Host, cfg.Server.Port)
+	cfg.Server.FullAddress = fullAddress
 	return cfg
 }

@@ -4,6 +4,8 @@ import (
 	"fmt"
 )
 
+const InternalServerError = internalServerError("Internal Server Error")
+
 type MethodNotAllowedError struct {
 	Method string
 }
@@ -12,22 +14,16 @@ func (e MethodNotAllowedError) Error() string {
 	return fmt.Sprintf("Method %s not allowed", e.Method)
 }
 
-type InternalServerError struct{}
+type internalServerError string
 
-func (e InternalServerError) Error() string {
-	return "Internal Server Error"
+func (e internalServerError) Error() string {
+	return string(e)
 }
 
 type NotFoundError struct {
-	Url string
+	URL string
 }
 
 func (e NotFoundError) Error() string {
-	return fmt.Sprintf("%s not found", e.Url)
-}
-
-type RequestParamsError struct{}
-
-func (e RequestParamsError) Error() string {
-	return fmt.Sprint("Url in request body is missing")
+	return fmt.Sprintf("%s not found", e.URL)
 }

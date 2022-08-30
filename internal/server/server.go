@@ -1,10 +1,9 @@
 package server
 
 import (
-	"encoding/json"
 	"fmt"
-	"github.com/go-redis/redis"
 	"github.com/maxsnegir/url-shortener/cmd/config"
+	"github.com/maxsnegir/url-shortener/internal/databases"
 	"github.com/maxsnegir/url-shortener/internal/services"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -22,19 +21,16 @@ type server struct {
 }
 
 func (s *server) configureRouter() {
-	s.Handler(`^/$`, s.SetUrlHandler())
-	s.Handler(`^/.*?/$`, s.GetUrlByIdHandler())
+	s.Handler(`^/$`, s.SetURLHandler())
+	s.Handler(`^/.*?/$`, s.GetURLByIDHandler())
 }
 
-func (s *server) Response(w http.ResponseWriter, r *http.Request, code int, data interface{}, err error) {
-	w.Header().Set("Content-Type", "application/json")
+func (s *server) TextResponse(w http.ResponseWriter, r *http.Request, code int, data string) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(code)
-	if err != nil {
-		data = map[string]string{"error": err.Error()}
-	}
-	if data != nil {
-		if err := json.NewEncoder(w).Encode(data); err != nil {
-			code = http.StatusInternalServerError
+
+	if data != "" {
+		if _, err := w.Write([]byte(data)); err != nil {
 			s.Logger.Error(err)
 		}
 	}
@@ -52,8 +48,8 @@ func (s *server) Start() error {
 	return nil
 }
 
-func NewServer(cfg config.Config, logger *logrus.Logger, redisClient *redis.Client) *server {
-	shortener := services.NewShortener(redisClient)
+func NewServer(cfg config.Config, logger *logrus.Logger, db databases.KeyValueDB) *server {
+	shortener := services.NewShortener(db)
 	return &server{
 		Config:        cfg,
 		Logger:        logger,

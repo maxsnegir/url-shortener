@@ -1,6 +1,7 @@
 server:
   port: 8080
   host: localhost
+  schema: http://
 redis:
   host: localhost
   port: 6379

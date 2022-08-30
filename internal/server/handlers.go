@@ -1,60 +1,63 @@
 package server
 
 import (
+	"fmt"
 	"github.com/maxsnegir/url-shortener/internal/services"
 	"io"
 	"net/http"
 	"strings"
 )
 
-func (s *server) SetUrlHandler() http.HandlerFunc {
+func (s *server) SetURLHandler() http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			s.Response(w, r, http.StatusMethodNotAllowed, nil, MethodNotAllowedError{r.Method})
+			s.TextResponse(w, r, http.StatusMethodNotAllowed, MethodNotAllowedError{r.Method}.Error())
 			return
 		}
 
 		url, err := io.ReadAll(r.Body)
 		if len(url) == 0 || err != nil {
-			s.Response(w, r, http.StatusUnprocessableEntity, nil, RequestParamsError{})
+			s.TextResponse(w, r, http.StatusUnprocessableEntity, "URL in request body is missing")
 			return
 		}
-		stringUrl := string(url)
-		if !s.Shortener.UrlIsValid(stringUrl) {
-			s.Response(w, r, http.StatusUnprocessableEntity, nil, services.UrlIsNotValidError{Url: stringUrl})
+		originalURL, err := s.Shortener.ParseURL(string(url))
+		if err != nil {
+			s.TextResponse(w, r, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
-		shortUrlId, err := s.Shortener.SetUrl(stringUrl, 0) // Пока нет тз, пусть ссылка хранится вечно
+		// Пока нет тз, пусть ссылка хранится вечно(подразумевалась для редиса)
+		urlID, err := s.Shortener.SetURL(originalURL, 0)
 		if err != nil {
 			s.Logger.Error(err)
-			s.Response(w, r, http.StatusInternalServerError, nil, InternalServerError{})
+			s.TextResponse(w, r, http.StatusInternalServerError, InternalServerError.Error())
 			return
 		}
-		s.Response(w, r, http.StatusOK, shortUrlId, nil)
+		shortURL := fmt.Sprintf("%s/%s/", s.Config.Server.FullAddress, urlID)
+		s.TextResponse(w, r, http.StatusCreated, shortURL)
 	}
 }
 
-func (s *server) GetUrlByIdHandler() http.HandlerFunc {
+func (s *server) GetURLByIDHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			s.Response(w, r, http.StatusMethodNotAllowed, nil, MethodNotAllowedError{r.Method})
+			s.TextResponse(w, r, http.StatusMethodNotAllowed, MethodNotAllowedError{r.Method}.Error())
 			return
 		}
-		urlId := strings.Split(r.URL.Path, "/")[1]
-		originalUrl, err := s.Shortener.GetUrlById(urlId)
+		urlID := strings.Split(r.URL.Path, "/")[1]
+		originalURL, err := s.Shortener.GetURLByID(urlID)
 		if err != nil {
 			switch err.(type) {
-			case services.OriginalUrlNotFound:
-				s.Response(w, r, http.StatusNotFound, nil, err)
+			case services.OriginalURLNotFound:
+				s.TextResponse(w, r, http.StatusNotFound, err.Error())
 			default:
 				s.Logger.Error(err)
-				s.Response(w, r, http.StatusInternalServerError, nil, InternalServerError{})
+				s.TextResponse(w, r, http.StatusInternalServerError, InternalServerError.Error())
 			}
 			return
 		}
-		w.Header().Add("Location", originalUrl)
-		s.Response(w, r, http.StatusTemporaryRedirect, nil, nil)
+		w.Header().Add("Location", originalURL)
+		s.TextResponse(w, r, http.StatusTemporaryRedirect, "")
 	}
 }
 
