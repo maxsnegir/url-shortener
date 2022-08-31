@@ -3,13 +3,13 @@ package services
 import (
 	"crypto/sha1"
 	"encoding/base64"
-	"github.com/maxsnegir/url-shortener/internal/databases"
+	"github.com/maxsnegir/url-shortener/internal/storages"
 	"net/url"
 	"time"
 )
 
 type Shortener struct {
-	db databases.KeyValueDB
+	db storages.KeyValueStorage
 }
 
 func (s *Shortener) SetURL(originalURL *url.URL, expires time.Duration) (string, error) {
@@ -23,7 +23,7 @@ func (s *Shortener) SetURL(originalURL *url.URL, expires time.Duration) (string,
 func (s *Shortener) GetURLByID(urlID string) (string, error) {
 	original, err := s.db.Get(urlID)
 	if err != nil {
-		if err == databases.KeyError {
+		if err == storages.KeyError {
 			return "", OriginalURLNotFound{urlID}
 		}
 		return "", err
@@ -54,7 +54,7 @@ func (s *Shortener) hashURL(URL string) string {
 	sha := base64.URLEncoding.EncodeToString(hasher.Sum(nil))
 	return sha[:8]
 }
-func NewShortener(db databases.KeyValueDB) *Shortener {
+func NewShortener(db storages.KeyValueStorage) *Shortener {
 	return &Shortener{
 		db: db,
 	}

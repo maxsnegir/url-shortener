@@ -1,10 +1,10 @@
-package databases
+package storages
 
 import (
 	"time"
 )
 
-type KeyValueDB interface {
+type KeyValueStorage interface {
 	Set(key string, value interface{}, expires time.Duration) error
 	Get(key string) (interface{}, error)
 }

@@ -4,6 +4,9 @@ build:
 run:
 	./shortener
 
+test:
+	go test ./... -v
+
 docker-run:
 	docker-compose up --build
 

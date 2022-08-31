@@ -3,8 +3,8 @@ package server
 import (
 	"fmt"
 	"github.com/maxsnegir/url-shortener/cmd/config"
-	"github.com/maxsnegir/url-shortener/internal/databases"
 	"github.com/maxsnegir/url-shortener/internal/services"
+	"github.com/maxsnegir/url-shortener/internal/storages"
 	"github.com/sirupsen/logrus"
 	"net/http"
 )
@@ -48,7 +48,7 @@ func (s *server) Start() error {
 	return nil
 }
 
-func NewServer(cfg config.Config, logger *logrus.Logger, db databases.KeyValueDB) *server {
+func NewServer(cfg config.Config, logger *logrus.Logger, db storages.KeyValueStorage) *server {
 	shortener := services.NewShortener(db)
 	return &server{
 		Config:        cfg,

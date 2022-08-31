@@ -26,7 +26,7 @@ func (s *server) SetURLHandler() http.HandlerFunc {
 			s.TextResponse(w, r, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
-		// Пока нет тз, пусть ссылка хранится вечно(подразумевалась для редиса)
+		// Пока нет тз, пусть ссылка хранится вечно(логика подразумевалась для хранения ссылки в редисе)
 		urlID, err := s.Shortener.SetURL(originalURL, 0)
 		if err != nil {
 			s.Logger.Error(err)

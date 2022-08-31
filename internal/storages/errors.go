@@ -1,4 +1,4 @@
-package databases
+package storages
 
 const KeyError = DBKeyError("Key does not exist")
 

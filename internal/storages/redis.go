@@ -1,4 +1,4 @@
-package databases
+package storages
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"github.com/maxsnegir/url-shortener/cmd/config"
 )
 
-// NewRedis Изначально я хотел хранить урлы в редис, реализовал для этого логику, но не подумал про
+// NewRedis Изначально я хотел хранить урлы в редисе, реализовал для этого логику, но не подумал про
 // автотесты, поэтому пусть это лежит до лучших времен :(
 func NewRedis(cfg config.Config) (*redis.Client, error) {
 	redisAdd := fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port)
