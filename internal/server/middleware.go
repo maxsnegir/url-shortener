@@ -4,11 +4,9 @@ import (
 	"net/http"
 )
 
-type Middleware func(http.HandlerFunc) http.HandlerFunc
-
-func MiddlewareConveyor(h http.HandlerFunc, middlewares ...Middleware) http.HandlerFunc {
-	for _, middleware := range middlewares {
-		h = middleware(h)
-	}
-	return h
+func (s *server) LoggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r)
+		s.Logger.Infof("%s :: %s", r.RequestURI, r.Method)
+	})
 }

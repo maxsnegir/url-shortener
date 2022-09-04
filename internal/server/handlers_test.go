@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"github.com/gorilla/mux"
 	"github.com/maxsnegir/url-shortener/cmd/config"
 	"github.com/maxsnegir/url-shortener/internal/services"
 	"github.com/maxsnegir/url-shortener/internal/storages"
@@ -75,10 +76,13 @@ func TestSetURLHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := strings.NewReader(tt.body)
-			request := httptest.NewRequest(tt.method, "/", body)
-			h := s.SetURLHandler()
 			w := httptest.NewRecorder()
-			h.ServeHTTP(w, request)
+
+			request := httptest.NewRequest(tt.method, "/", body)
+			router := mux.NewRouter()
+			router.HandleFunc("/", s.SetURLHandler())
+			router.ServeHTTP(w, request)
+
 			response := w.Result()
 			defer response.Body.Close()
 			resBody, err := io.ReadAll(response.Body)
@@ -145,6 +149,9 @@ func TestGetURLByIDHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			router := mux.NewRouter()
+			router.HandleFunc("/{urlID}/", s.GetURLByIDHandler())
 			URL, _ := url.Parse(tt.url)
 			var urlID string
 			switch tt.unsetURL {
@@ -153,11 +160,8 @@ func TestGetURLByIDHandler(t *testing.T) {
 			default:
 				urlID, _ = s.Shortener.SetURL(URL, 0)
 			}
-
 			request := httptest.NewRequest(tt.method, fmt.Sprintf("/%s/", urlID), nil)
-			h := s.GetURLByIDHandler()
-			w := httptest.NewRecorder()
-			h.ServeHTTP(w, request)
+			router.ServeHTTP(w, request)
 			response := w.Result()
 			defer response.Body.Close()
 			resBody, err := io.ReadAll(response.Body)
