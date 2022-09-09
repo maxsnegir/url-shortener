@@ -1,29 +1,20 @@
 package storages
 
-import (
-	"time"
-)
+type URLDataBase map[string]string
 
-type KeyValueStorage interface {
-	Set(key string, value interface{}, expires time.Duration) error
-	Get(key string) (interface{}, error)
-}
-
-type URLDateBase map[string]interface{}
-
-func (db URLDateBase) Set(key string, value interface{}, expires time.Duration) error {
+func (db URLDataBase) Set(key string, value string) error {
 	db[key] = value
 	return nil
 }
 
-func (db URLDateBase) Get(key string) (interface{}, error) {
+func (db URLDataBase) Get(key string) (string, error) {
 	value, ok := db[key]
 	if !ok {
-		return nil, KeyError
+		return "", KeyError
 	}
 	return value, nil
 }
 
-func NewURLDateBase() URLDateBase {
-	return make(URLDateBase)
+func NewURLDataBase() URLDataBase {
+	return make(URLDataBase)
 }

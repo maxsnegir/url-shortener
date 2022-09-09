@@ -11,15 +11,16 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 )
 
 func TestSetURLHandler(t *testing.T) {
 	cfg := config.NewConfig("../../configs/config.yaml")
-	s := NewServer(cfg, logrus.New(), storages.NewURLDateBase())
 	serverAddress := cfg.Server.FullAddress
+	urlDB := storages.NewURLDataBase()
+	shortener := services.NewShortener(urlDB, serverAddress)
+	handler := NewURLHandler(shortener, logrus.New())
 	type want struct {
 		code        int
 		response    string
@@ -45,9 +46,7 @@ func TestSetURLHandler(t *testing.T) {
 		{
 			name: "Wrong HTTP Method",
 			want: want{
-				code:        http.StatusMethodNotAllowed,
-				response:    MethodNotAllowedError{http.MethodGet}.Error(),
-				contentType: "text/plain; charset=utf-8",
+				code: http.StatusMethodNotAllowed,
 			},
 			body:   "https://practicum.yandex.ru/",
 			method: http.MethodGet,
@@ -55,7 +54,7 @@ func TestSetURLHandler(t *testing.T) {
 		{
 			name: "Wrong Body",
 			want: want{
-				code:        http.StatusUnprocessableEntity,
+				code:        http.StatusBadRequest,
 				response:    services.URLIsNotValidError{URL: "URL"}.Error(),
 				contentType: "text/plain; charset=utf-8",
 			},
@@ -80,7 +79,7 @@ func TestSetURLHandler(t *testing.T) {
 
 			request := httptest.NewRequest(tt.method, "/", body)
 			router := mux.NewRouter()
-			router.HandleFunc("/", s.SetURLHandler())
+			router.HandleFunc("/", handler.SetURLHandler()).Methods(http.MethodPost)
 			router.ServeHTTP(w, request)
 
 			response := w.Result()
@@ -98,7 +97,10 @@ func TestSetURLHandler(t *testing.T) {
 
 func TestGetURLByIDHandler(t *testing.T) {
 	cfg := config.NewConfig("../../configs/config.yaml")
-	s := NewServer(cfg, logrus.New(), storages.NewURLDateBase())
+	serverAddress := cfg.Server.FullAddress
+	urlDB := storages.NewURLDataBase()
+	shortener := services.NewShortener(urlDB, serverAddress)
+	handler := NewURLHandler(shortener, logrus.New())
 	type want struct {
 		code        int
 		response    string
@@ -107,11 +109,10 @@ func TestGetURLByIDHandler(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		want     want
-		url      string
-		method   string
-		unsetURL bool
+		name   string
+		want   want
+		url    string
+		method string
 	}{
 		{
 			name: "All correct",
@@ -127,40 +128,19 @@ func TestGetURLByIDHandler(t *testing.T) {
 		{
 			name: "Wrong HTTP Method",
 			want: want{
-				code:        http.StatusMethodNotAllowed,
-				response:    MethodNotAllowedError{http.MethodPost}.Error(),
-				contentType: "text/plain; charset=utf-8",
-				location:    "",
+				code: http.StatusMethodNotAllowed,
 			},
 			url:    "https://practicum.yandex.ru/",
 			method: http.MethodPost,
-		},
-		{
-			name: "Un existing URL ID",
-			want: want{
-				code:        http.StatusNotFound,
-				response:    services.OriginalURLNotFound{URLID: "blabla"}.Error(),
-				contentType: "text/plain; charset=utf-8",
-				location:    "",
-			},
-			method:   http.MethodGet,
-			unsetURL: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
 			router := mux.NewRouter()
-			router.HandleFunc("/{urlID}/", s.GetURLByIDHandler())
-			URL, _ := url.Parse(tt.url)
-			var urlID string
-			switch tt.unsetURL {
-			case true:
-				urlID = "blabla" // Несуществующий urlID
-			default:
-				urlID, _ = s.Shortener.SetURL(URL, 0)
-			}
-			request := httptest.NewRequest(tt.method, fmt.Sprintf("/%s/", urlID), nil)
+			router.HandleFunc("/{urlID}/", handler.GetURLByIDHandler()).Methods(http.MethodGet)
+			shortURL, _ := shortener.SetURL(tt.url)
+			request := httptest.NewRequest(tt.method, shortURL, nil)
 			router.ServeHTTP(w, request)
 			response := w.Result()
 			defer response.Body.Close()

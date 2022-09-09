@@ -3,59 +3,84 @@ package services
 import (
 	"crypto/sha1"
 	"encoding/base64"
+	"fmt"
 	"github.com/maxsnegir/url-shortener/internal/storages"
 	"net/url"
-	"time"
+	"strings"
 )
 
-type Shortener struct {
-	db storages.KeyValueStorage
+type URLService interface {
+	SetURL(url string) (string, error)
+	GetURLByID(urlID string) (string, error)
 }
 
-func (s *Shortener) SetURL(originalURL *url.URL, expires time.Duration) (string, error) {
-	urlHash := s.hashURL(originalURL.String())
-	if err := s.setURL(urlHash, originalURL.String(), expires); err != nil {
+type shortener struct {
+	storage storages.URLDataBase
+	hostURL string
+}
+
+func (s *shortener) SetURL(url string) (string, error) {
+	if err := s.isURLValid(url); err != nil {
 		return "", err
 	}
-	return urlHash, nil
-}
-
-func (s *Shortener) GetURLByID(urlID string) (string, error) {
-	original, err := s.db.Get(urlID)
-	if err != nil {
-		if err == storages.KeyError {
-			return "", OriginalURLNotFound{urlID}
-		}
+	urlHash := s.getURLHash(url)
+	if err := s.saveURL(urlHash, url); err != nil {
 		return "", err
 	}
-	originalURL, _ := original.(string)
-	return originalURL, nil
+	shortURL := fmt.Sprintf("%s/%s/", s.hostURL, urlHash)
+	return shortURL, nil
 }
 
-func (s *Shortener) setURL(urlHash, url string, expires time.Duration) error {
-	err := s.db.Set(urlHash, url, expires*time.Minute)
-	if err != nil {
+func (s *shortener) GetURLByID(urlID string) (string, error) {
+	originalURL, err := s.storage.Get(urlID)
+	if err == nil {
+		return originalURL, nil
+	}
+
+	if err == storages.KeyError {
+		return "", OriginalURLNotFound{urlID}
+	}
+
+	return "", err
+}
+
+func (s *shortener) saveURL(urlID, originalURL string) error {
+	if err := s.storage.Set(urlID, originalURL); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *Shortener) ParseURL(URL string) (*url.URL, error) {
+func (s *shortener) isURLValid(URL string) error {
 	u, err := url.Parse(URL)
 	if err != nil || (u.Scheme == "" && u.Host == "") {
-		return nil, URLIsNotValidError{URL: u.String()}
+		return URLIsNotValidError{URL: u.String()}
 	}
-	return u, nil
+	return nil
 }
 
-func (s *Shortener) hashURL(URL string) string {
+func (s *shortener) getURLHash(URL string) string {
 	hasher := sha1.New()
 	hasher.Write([]byte(URL))
 	sha := base64.URLEncoding.EncodeToString(hasher.Sum(nil))
 	return sha[:8]
 }
-func NewShortener(db storages.KeyValueStorage) *Shortener {
-	return &Shortener{
-		db: db,
+
+func (s *shortener) getURLIdFromShortURL(shortURL string) string {
+	URL, err := url.Parse(shortURL)
+	if err != nil {
+		return ""
+	}
+	params := strings.Split(URL.Path, "/")
+	if len(params) == 3 {
+		return params[1]
+	}
+	return ""
+}
+
+func NewShortener(storage storages.URLDataBase, hostURL string) *shortener {
+	return &shortener{
+		storage: storage,
+		hostURL: hostURL,
 	}
 }

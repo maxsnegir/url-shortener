@@ -1,63 +1,80 @@
 package server
 
 import (
-	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/maxsnegir/url-shortener/internal/services"
+	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 )
 
-func (s *server) SetURLHandler() http.HandlerFunc {
+type BaseHandler struct {
+	logger *logrus.Logger
+}
 
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			s.TextResponse(w, http.StatusMethodNotAllowed, MethodNotAllowedError{r.Method}.Error())
-			return
-		}
+func (h *BaseHandler) TextResponse(w http.ResponseWriter, code int, data string) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(code)
 
-		url, err := io.ReadAll(r.Body)
-		if len(url) == 0 || err != nil {
-			s.TextResponse(w, http.StatusUnprocessableEntity, "URL in request body is missing")
-			return
+	if data != "" {
+		if _, err := w.Write([]byte(data)); err != nil {
+			h.logger.Error(err)
 		}
-		originalURL, err := s.Shortener.ParseURL(string(url))
-		if err != nil {
-			s.TextResponse(w, http.StatusUnprocessableEntity, err.Error())
-			return
-		}
-		// Пока нет тз, пусть ссылка хранится вечно(логика подразумевалась для хранения ссылки в редисе)
-		urlID, err := s.Shortener.SetURL(originalURL, 0)
-		if err != nil {
-			s.Logger.Error(err)
-			s.TextResponse(w, http.StatusInternalServerError, InternalServerError.Error())
-			return
-		}
-		shortURL := fmt.Sprintf("%s/%s/", s.Config.Server.FullAddress, urlID)
-		s.TextResponse(w, http.StatusCreated, shortURL)
 	}
 }
 
-func (s *server) GetURLByIDHandler() http.HandlerFunc {
+type URLHandler struct {
+	BaseHandler
+	shortener services.URLService
+}
+
+func (h *URLHandler) SetURLHandler() http.HandlerFunc {
+
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			s.TextResponse(w, http.StatusMethodNotAllowed, MethodNotAllowedError{r.Method}.Error())
+		url, err := io.ReadAll(r.Body)
+		if len(url) == 0 || err != nil {
+			h.TextResponse(w, http.StatusUnprocessableEntity, "URL in request body is missing")
 			return
 		}
+		shortURL, err := h.shortener.SetURL(string(url))
+		if err != nil {
+			switch err.(type) {
+			case services.URLIsNotValidError:
+				h.TextResponse(w, http.StatusBadRequest, err.Error())
+			default:
+				h.logger.Error(err)
+				h.TextResponse(w, http.StatusInternalServerError, InternalServerError.Error())
+			}
+			return
+		}
+		h.TextResponse(w, http.StatusCreated, shortURL)
+	}
+}
+
+func (h *URLHandler) GetURLByIDHandler() http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		urlID := vars["urlID"]
-		originalURL, err := s.Shortener.GetURLByID(urlID)
+		originalURL, err := h.shortener.GetURLByID(urlID)
 		if err != nil {
 			switch err.(type) {
 			case services.OriginalURLNotFound:
-				s.TextResponse(w, http.StatusNotFound, err.Error())
+				h.TextResponse(w, http.StatusNotFound, err.Error())
 			default:
-				s.Logger.Error(err)
-				s.TextResponse(w, http.StatusInternalServerError, InternalServerError.Error())
+				h.logger.Error(err)
+				h.TextResponse(w, http.StatusInternalServerError, InternalServerError.Error())
 			}
 			return
 		}
 		w.Header().Add("Location", originalURL)
-		s.TextResponse(w, http.StatusTemporaryRedirect, "")
+		h.TextResponse(w, http.StatusTemporaryRedirect, "")
+	}
+}
+
+func NewURLHandler(shortener services.URLService, logger *logrus.Logger) URLHandler {
+	return URLHandler{
+		BaseHandler: BaseHandler{logger: logger},
+		shortener:   shortener,
 	}
 }
