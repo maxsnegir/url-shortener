@@ -12,7 +12,3 @@ docker-run:
 
 docker-stop:
 	docker-compose stop
-
-# Для локальной разработки поднимаем только базу
-docker-run-dev:
-	docker-compose up redis

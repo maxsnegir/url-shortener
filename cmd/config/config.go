@@ -14,11 +14,6 @@ type Config struct {
 		Schema      string `yaml:"schema"`
 		FullAddress string
 	} `yaml:"server"`
-	Redis struct {
-		Host string `yaml:"host"`
-		Port string `yaml:"port"`
-		DB   int    `yaml:"database"`
-	} `yaml:"redis"`
 	Logger struct {
 		LogLevel string `yaml:"log-level"`
 	} `yaml:"logging"`
