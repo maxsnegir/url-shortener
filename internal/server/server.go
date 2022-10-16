@@ -27,7 +27,8 @@ func (s *server) beforeStart() {
 }
 
 func (s *server) configureRouter() {
-	s.router.HandleFunc("/", s.urlHandler.SetURLHandler()).Methods(http.MethodPost)
+	s.router.HandleFunc("/", s.urlHandler.SetURLTextHandler()).Methods(http.MethodPost)
+	s.router.HandleFunc("/api/shorten", s.urlHandler.SetURLJSONHandler()).Methods(http.MethodPost)
 	s.router.HandleFunc("/{urlID}/", s.urlHandler.GetURLByIDHandler()).Methods(http.MethodGet)
 	s.router.Use(s.LoggingMiddleware)
 }
