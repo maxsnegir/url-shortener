@@ -15,7 +15,7 @@ type URLService interface {
 }
 
 type shortener struct {
-	storage storages.URLDataBase
+	storage storages.Storage
 	hostURL string
 }
 
@@ -53,7 +53,7 @@ func (s *shortener) saveURL(urlID, originalURL string) error {
 
 func (s *shortener) isURLValid(URL string) error {
 	u, err := url.Parse(URL)
-	if err != nil || (u.Scheme == "" && u.Host == "") {
+	if err != nil || (u.Scheme == "" || u.Host == "") {
 		return URLIsNotValidError{URL: u.String()}
 	}
 	return nil
@@ -78,7 +78,7 @@ func (s *shortener) getURLIdFromShortURL(shortURL string) string {
 	return ""
 }
 
-func NewShortener(storage storages.URLDataBase, hostURL string) *shortener {
+func NewShortener(storage storages.Storage, hostURL string) *shortener {
 	return &shortener{
 		storage: storage,
 		hostURL: hostURL,

@@ -13,7 +13,8 @@ type Config struct {
 		LogLevel string `env:"LOG_LEVEL" envDefault:"DEBUG"`
 	}
 	Shortener struct {
-		BaseURL string `env:"BASE_URL" envDefault:"http://localhost:8000"`
+		BaseURL         string `env:"BASE_URL" envDefault:"http://localhost:8000"`
+		FileStoragePath string `env:"FILE_STORAGE_PATH" envDefault:""`
 	}
 }
 
