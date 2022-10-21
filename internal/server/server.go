@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/maxsnegir/url-shortener/cmd/config"
 	"github.com/sirupsen/logrus"
@@ -17,9 +16,8 @@ type server struct {
 
 func (s *server) Start() error {
 	s.beforeStart()
-	serverAddress := fmt.Sprintf("%s:%s", s.config.Server.Host, s.config.Server.Port)
-	s.logger.Infof("Server is starting on %s", serverAddress)
-	return http.ListenAndServe(serverAddress, s.router)
+	s.logger.Infof("Server is starting on %s", s.config.Server.ServerAddress)
+	return http.ListenAndServe(s.config.Server.ServerAddress, s.router)
 }
 
 func (s *server) beforeStart() {

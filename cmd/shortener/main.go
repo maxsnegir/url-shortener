@@ -10,11 +10,14 @@ import (
 )
 
 func main() {
-	cfg := config.NewConfig("configs/config.yaml")
+	cfg, err := config.NewConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
 	logger := logging.NewLogger(cfg.Logger.LogLevel)
 	urlDataBase := storages.NewURLDataBase()
-	shortener := services.NewShortener(urlDataBase, cfg.Server.FullAddress)
+	shortener := services.NewShortener(urlDataBase, cfg.Shortener.BaseURL)
 	urlHandler := server.NewURLHandler(shortener, logger)
 	s := server.NewServer(cfg, logger, urlHandler)
-	log.Fatal(s.Start())
+	logger.Fatal(s.Start())
 }

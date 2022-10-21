@@ -1,43 +1,27 @@
 package config
 
 import (
-	"fmt"
-	"gopkg.in/yaml.v2"
-	"log"
-	"os"
+	"github.com/caarlos0/env/v6"
 )
 
+// Config common settings for web application
 type Config struct {
 	Server struct {
-		Port        string `yaml:"port"`
-		Host        string `yaml:"host"`
-		Schema      string `yaml:"schema"`
-		FullAddress string
-	} `yaml:"server"`
+		ServerAddress string `env:"SERVER_ADDRESS" envDefault:"localhost:8000"`
+	}
 	Logger struct {
-		LogLevel string `yaml:"log-level"`
-	} `yaml:"logging"`
+		LogLevel string `env:"LOG_LEVEL" envDefault:"DEBUG"`
+	}
+	Shortener struct {
+		BaseURL string `env:"BASE_URL" envDefault:"http://localhost:8000"`
+	}
 }
 
-func NewConfig(path string) Config {
-	f, err := os.Open(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer func(f *os.File) {
-		err := f.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}(f)
-
+// NewConfig creates a new Config
+func NewConfig() (Config, error) {
 	var cfg Config
-	decoder := yaml.NewDecoder(f)
-	err = decoder.Decode(&cfg)
-	if err != nil {
-		log.Fatal(err)
+	if err := env.Parse(&cfg); err != nil {
+		return cfg, err
 	}
-	fullAddress := fmt.Sprintf("%s%s:%s", cfg.Server.Schema, cfg.Server.Host, cfg.Server.Port)
-	cfg.Server.FullAddress = fullAddress
-	return cfg
+	return cfg, nil
 }

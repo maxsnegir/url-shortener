@@ -18,10 +18,10 @@ import (
 )
 
 func TestSetURLTextHandler(t *testing.T) {
-	cfg := config.NewConfig("../../configs/config.yaml")
-	serverAddress := cfg.Server.FullAddress
+	cfg, _ := config.NewConfig()
+	shortURLAddress := cfg.Shortener.BaseURL
 	urlDB := storages.NewURLDataBase()
-	shortener := services.NewShortener(urlDB, serverAddress)
+	shortener := services.NewShortener(urlDB, shortURLAddress)
 	handler := NewURLHandler(shortener, logrus.New())
 	type want struct {
 		code        int
@@ -39,7 +39,7 @@ func TestSetURLTextHandler(t *testing.T) {
 			name: "All correct",
 			want: want{
 				code:        http.StatusCreated,
-				response:    fmt.Sprintf("%s/pkmdI_i-/", serverAddress),
+				response:    fmt.Sprintf("%s/pkmdI_i-/", shortURLAddress),
 				contentType: "text/plain; charset=utf-8",
 			},
 			body:   "https://practicum.yandex.ru/",
@@ -98,10 +98,10 @@ func TestSetURLTextHandler(t *testing.T) {
 }
 
 func TestSetURLJSONHandler(t *testing.T) {
-	cfg := config.NewConfig("../../configs/config.yaml")
-	serverAddress := cfg.Server.FullAddress
+	cfg, _ := config.NewConfig()
+	shortURLAddress := cfg.Shortener.BaseURL
 	urlDB := storages.NewURLDataBase()
-	shortener := services.NewShortener(urlDB, serverAddress)
+	shortener := services.NewShortener(urlDB, shortURLAddress)
 	handler := NewURLHandler(shortener, logrus.New())
 	type ResponseData struct {
 		Result string `json:"result"`
@@ -126,7 +126,7 @@ func TestSetURLJSONHandler(t *testing.T) {
 			want: want{
 				hasResponseBody: true,
 				code:            http.StatusCreated,
-				response:        ResponseData{Result: fmt.Sprintf("%s/pkmdI_i-/", serverAddress)},
+				response:        ResponseData{Result: fmt.Sprintf("%s/pkmdI_i-/", shortURLAddress)},
 				contentType:     "application/json",
 			},
 			url:    "https://practicum.yandex.ru/",
@@ -192,10 +192,10 @@ func TestSetURLJSONHandler(t *testing.T) {
 }
 
 func TestGetURLByIDHandler(t *testing.T) {
-	cfg := config.NewConfig("../../configs/config.yaml")
-	serverAddress := cfg.Server.FullAddress
+	cfg, _ := config.NewConfig()
+	shortURLAddress := cfg.Shortener.BaseURL
 	urlDB := storages.NewURLDataBase()
-	shortener := services.NewShortener(urlDB, serverAddress)
+	shortener := services.NewShortener(urlDB, shortURLAddress)
 	handler := NewURLHandler(shortener, logrus.New())
 	type want struct {
 		code        int
