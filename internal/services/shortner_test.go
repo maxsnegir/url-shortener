@@ -43,9 +43,8 @@ func TestSetURL(t *testing.T) {
 
 // TestGetURLByID Проверка того, что shortener возвращает правильные ссылки по ID
 func TestGetURLByID(t *testing.T) {
-	cfg, _ := config.NewConfig()
 	DB := storages.NewMapURLDataBase()
-	shortener := NewShortener(DB, cfg.Shortener.BaseURL)
+	shortener := NewShortener(DB, config.BaseURL)
 	tests := []struct {
 		name     string
 		value    string
@@ -77,9 +76,8 @@ func TestGetURLByID(t *testing.T) {
 
 // TestParseURL Проверка того, что правильно проверяется валидность URL
 func TestParseURL(t *testing.T) {
-	cfg, _ := config.NewConfig()
 	DB := storages.NewMapURLDataBase()
-	shortener := NewShortener(DB, cfg.Shortener.BaseURL)
+	shortener := NewShortener(DB, config.BaseURL)
 	tests := []struct {
 		name      string
 		value     string

@@ -18,8 +18,7 @@ import (
 )
 
 func TestSetURLTextHandler(t *testing.T) {
-	cfg, _ := config.NewConfig()
-	shortURLAddress := cfg.Shortener.BaseURL
+	shortURLAddress := config.BaseURL
 	urlDB := storages.NewMapURLDataBase()
 	shortener := services.NewShortener(urlDB, shortURLAddress)
 	handler := NewURLHandler(shortener, logrus.New())
@@ -98,8 +97,7 @@ func TestSetURLTextHandler(t *testing.T) {
 }
 
 func TestSetURLJSONHandler(t *testing.T) {
-	cfg, _ := config.NewConfig()
-	shortURLAddress := cfg.Shortener.BaseURL
+	shortURLAddress := config.BaseURL
 	urlDB := storages.NewMapURLDataBase()
 	shortener := services.NewShortener(urlDB, shortURLAddress)
 	handler := NewURLHandler(shortener, logrus.New())
@@ -192,8 +190,7 @@ func TestSetURLJSONHandler(t *testing.T) {
 }
 
 func TestGetURLByIDHandler(t *testing.T) {
-	cfg, _ := config.NewConfig()
-	shortURLAddress := cfg.Shortener.BaseURL
+	shortURLAddress := config.BaseURL
 	urlDB := storages.NewMapURLDataBase()
 	shortener := services.NewShortener(urlDB, shortURLAddress)
 	handler := NewURLHandler(shortener, logrus.New())

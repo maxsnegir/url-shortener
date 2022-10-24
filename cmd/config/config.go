@@ -1,28 +1,38 @@
 package config
 
 import (
-	"github.com/caarlos0/env/v6"
+	"flag"
+	"github.com/maxsnegir/url-shortener/internal/utils"
+)
+
+const (
+	ServerAddress   = "localhost:8080"
+	LogLevel        = "DEBUG"
+	BaseURL         = "http://localhost:8080"
+	FileStoragePath = "storage_data"
 )
 
 // Config common settings for web application
 type Config struct {
 	Server struct {
-		ServerAddress string `env:"SERVER_ADDRESS" envDefault:"localhost:8080"`
+		ServerAddress string
 	}
 	Logger struct {
-		LogLevel string `env:"LOG_LEVEL" envDefault:"DEBUG"`
+		LogLevel string
 	}
 	Shortener struct {
-		BaseURL         string `env:"BASE_URL" envDefault:"http://localhost:8080"`
-		FileStoragePath string `env:"FILE_STORAGE_PATH" envDefault:""`
+		BaseURL         string
+		FileStoragePath string
 	}
 }
 
 // NewConfig creates a new Config
 func NewConfig() (Config, error) {
 	var cfg Config
-	if err := env.Parse(&cfg); err != nil {
-		return cfg, err
-	}
+	flag.StringVar(&cfg.Server.ServerAddress, "a", utils.GetEnv("SERVER_ADDRESS", ServerAddress), "server address")
+	flag.StringVar(&cfg.Shortener.BaseURL, "b", utils.GetEnv("BASE_URL", BaseURL), "base shortener address")
+	flag.StringVar(&cfg.Shortener.FileStoragePath, "f", utils.GetEnv("FILE_STORAGE_PATH", FileStoragePath), "name of file storage")
+	flag.StringVar(&cfg.Logger.LogLevel, "l", utils.GetEnv("LOG_LEVEL", LogLevel), "set log level")
+	flag.Parse()
 	return cfg, nil
 }
