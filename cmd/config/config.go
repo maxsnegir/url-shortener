@@ -7,13 +7,13 @@ import (
 // Config common settings for web application
 type Config struct {
 	Server struct {
-		ServerAddress string `env:"SERVER_ADDRESS" envDefault:"localhost:8000"`
+		ServerAddress string `env:"SERVER_ADDRESS" envDefault:"localhost:8080"`
 	}
 	Logger struct {
 		LogLevel string `env:"LOG_LEVEL" envDefault:"DEBUG"`
 	}
 	Shortener struct {
-		BaseURL         string `env:"BASE_URL" envDefault:"http://localhost:8000"`
+		BaseURL         string `env:"BASE_URL" envDefault:"http://localhost:8080"`
 		FileStoragePath string `env:"FILE_STORAGE_PATH" envDefault:""`
 	}
 }
