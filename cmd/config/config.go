@@ -9,7 +9,7 @@ const (
 	ServerAddress   = "localhost:8080"
 	LogLevel        = "DEBUG"
 	BaseURL         = "http://localhost:8080"
-	FileStoragePath = "storage_data"
+	FileStoragePath = ""
 )
 
 // Config common settings for web application

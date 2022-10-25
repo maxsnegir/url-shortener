@@ -29,6 +29,8 @@ func (s *server) configureRouter() {
 	s.router.HandleFunc("/api/shorten", s.urlHandler.SetURLJSONHandler()).Methods(http.MethodPost)
 	s.router.HandleFunc("/{urlID}/", s.urlHandler.GetURLByIDHandler()).Methods(http.MethodGet)
 	s.router.Use(s.LoggingMiddleware)
+	s.router.Use(s.GzipMiddleware)
+	s.router.Use(s.UnzipMiddleware)
 }
 
 func NewServer(cfg config.Config, logger *logrus.Logger, urlHandler URLHandler) *server {
