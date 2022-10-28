@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/maxsnegir/url-shortener/cmd/config"
 	"github.com/sirupsen/logrus"
@@ -17,9 +16,8 @@ type server struct {
 
 func (s *server) Start() error {
 	s.beforeStart()
-	serverAddress := fmt.Sprintf("%s:%s", s.config.Server.Host, s.config.Server.Port)
-	s.logger.Infof("Server is starting on %s", serverAddress)
-	return http.ListenAndServe(serverAddress, s.router)
+	s.logger.Infof("Server is starting on %s", s.config.Server.ServerAddress)
+	return http.ListenAndServe(s.config.Server.ServerAddress, s.router)
 }
 
 func (s *server) beforeStart() {
@@ -27,9 +25,12 @@ func (s *server) beforeStart() {
 }
 
 func (s *server) configureRouter() {
-	s.router.HandleFunc("/", s.urlHandler.SetURLHandler()).Methods(http.MethodPost)
+	s.router.HandleFunc("/", s.urlHandler.SetURLTextHandler()).Methods(http.MethodPost)
+	s.router.HandleFunc("/api/shorten", s.urlHandler.SetURLJSONHandler()).Methods(http.MethodPost)
 	s.router.HandleFunc("/{urlID}/", s.urlHandler.GetURLByIDHandler()).Methods(http.MethodGet)
 	s.router.Use(s.LoggingMiddleware)
+	s.router.Use(s.GzipMiddleware)
+	s.router.Use(s.UnzipMiddleware)
 }
 
 func NewServer(cfg config.Config, logger *logrus.Logger, urlHandler URLHandler) *server {

@@ -1,43 +1,38 @@
 package config
 
 import (
-	"fmt"
-	"gopkg.in/yaml.v2"
-	"log"
-	"os"
+	"flag"
+	"github.com/maxsnegir/url-shortener/internal/utils"
 )
 
+const (
+	ServerAddress   = "localhost:8080"
+	LogLevel        = "DEBUG"
+	BaseURL         = "http://localhost:8080"
+	FileStoragePath = ""
+)
+
+// Config common settings for web application
 type Config struct {
 	Server struct {
-		Port        string `yaml:"port"`
-		Host        string `yaml:"host"`
-		Schema      string `yaml:"schema"`
-		FullAddress string
-	} `yaml:"server"`
+		ServerAddress string
+	}
 	Logger struct {
-		LogLevel string `yaml:"log-level"`
-	} `yaml:"logging"`
+		LogLevel string
+	}
+	Shortener struct {
+		BaseURL         string
+		FileStoragePath string
+	}
 }
 
-func NewConfig(path string) Config {
-	f, err := os.Open(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer func(f *os.File) {
-		err := f.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}(f)
-
+// NewConfig creates a new Config
+func NewConfig() (Config, error) {
 	var cfg Config
-	decoder := yaml.NewDecoder(f)
-	err = decoder.Decode(&cfg)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fullAddress := fmt.Sprintf("%s%s:%s", cfg.Server.Schema, cfg.Server.Host, cfg.Server.Port)
-	cfg.Server.FullAddress = fullAddress
-	return cfg
+	flag.StringVar(&cfg.Server.ServerAddress, "a", utils.GetEnv("SERVER_ADDRESS", ServerAddress), "server address")
+	flag.StringVar(&cfg.Shortener.BaseURL, "b", utils.GetEnv("BASE_URL", BaseURL), "base shortener address")
+	flag.StringVar(&cfg.Shortener.FileStoragePath, "f", utils.GetEnv("FILE_STORAGE_PATH", FileStoragePath), "name of file storage")
+	flag.StringVar(&cfg.Logger.LogLevel, "l", utils.GetEnv("LOG_LEVEL", LogLevel), "set log level")
+	flag.Parse()
+	return cfg, nil
 }

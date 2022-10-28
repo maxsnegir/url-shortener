@@ -1,6 +1,0 @@
-server:
-  port: 8080
-  host: localhost
-  schema: http://
-logging:
-  log-level: DEBUG

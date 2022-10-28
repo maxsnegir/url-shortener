@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/maxsnegir/url-shortener/cmd/config"
@@ -15,11 +17,10 @@ import (
 	"testing"
 )
 
-func TestSetURLHandler(t *testing.T) {
-	cfg := config.NewConfig("../../configs/config.yaml")
-	serverAddress := cfg.Server.FullAddress
-	urlDB := storages.NewURLDataBase()
-	shortener := services.NewShortener(urlDB, serverAddress)
+func TestSetURLTextHandler(t *testing.T) {
+	shortURLAddress := config.BaseURL
+	urlDB := storages.NewMapURLDataBase()
+	shortener := services.NewShortener(urlDB, shortURLAddress)
 	handler := NewURLHandler(shortener, logrus.New())
 	type want struct {
 		code        int
@@ -37,7 +38,7 @@ func TestSetURLHandler(t *testing.T) {
 			name: "All correct",
 			want: want{
 				code:        http.StatusCreated,
-				response:    fmt.Sprintf("%s/pkmdI_i-/", serverAddress),
+				response:    fmt.Sprintf("%s/pkmdI_i-/", shortURLAddress),
 				contentType: "text/plain; charset=utf-8",
 			},
 			body:   "https://practicum.yandex.ru/",
@@ -79,7 +80,7 @@ func TestSetURLHandler(t *testing.T) {
 
 			request := httptest.NewRequest(tt.method, "/", body)
 			router := mux.NewRouter()
-			router.HandleFunc("/", handler.SetURLHandler()).Methods(http.MethodPost)
+			router.HandleFunc("/", handler.SetURLTextHandler()).Methods(http.MethodPost)
 			router.ServeHTTP(w, request)
 
 			response := w.Result()
@@ -95,11 +96,103 @@ func TestSetURLHandler(t *testing.T) {
 	}
 }
 
+func TestSetURLJSONHandler(t *testing.T) {
+	shortURLAddress := config.BaseURL
+	urlDB := storages.NewMapURLDataBase()
+	shortener := services.NewShortener(urlDB, shortURLAddress)
+	handler := NewURLHandler(shortener, logrus.New())
+	type ResponseData struct {
+		Result string `json:"result"`
+		ErrMsg string `json:"error,omitempty"`
+	}
+
+	type want struct {
+		code            int
+		hasResponseBody bool
+		response        ResponseData
+		contentType     string
+	}
+
+	tests := []struct {
+		name   string
+		want   want
+		url    string
+		method string
+	}{
+		{
+			name: "All correct",
+			want: want{
+				hasResponseBody: true,
+				code:            http.StatusCreated,
+				response:        ResponseData{Result: fmt.Sprintf("%s/pkmdI_i-/", shortURLAddress)},
+				contentType:     "application/json",
+			},
+			url:    "https://practicum.yandex.ru/",
+			method: http.MethodPost,
+		},
+		{
+			name: "Wrong HTTP Method",
+			want: want{
+				code: http.StatusMethodNotAllowed,
+			},
+			url:    "https://practicum.yandex.ru/",
+			method: http.MethodGet,
+		},
+		{
+			name: "Wrong Body",
+			want: want{
+				code:            http.StatusBadRequest,
+				hasResponseBody: true,
+				response: ResponseData{
+					ErrMsg: services.URLIsNotValidError{URL: "URL"}.Error(),
+				},
+				contentType: "application/json",
+			},
+			url:    "URL",
+			method: http.MethodPost,
+		},
+		{
+			name: "Empty Body",
+			want: want{
+				code:            http.StatusBadRequest,
+				hasResponseBody: true,
+				response:        ResponseData{ErrMsg: "Wrong URL type or URL in body is missing"},
+				contentType:     "application/json",
+			},
+			url:    "",
+			method: http.MethodPost,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			writer := httptest.NewRecorder()
+			var jsonStr = []byte(fmt.Sprintf(`{"url":"%s"}`, tt.url))
+			request := httptest.NewRequest(tt.method, "/api/shorten", bytes.NewBuffer(jsonStr))
+			router := mux.NewRouter()
+			router.HandleFunc("/api/shorten", handler.SetURLJSONHandler()).Methods(http.MethodPost)
+			router.ServeHTTP(writer, request)
+			response := writer.Result()
+			defer response.Body.Close()
+
+			responseData := &ResponseData{}
+			assert.Equal(t, tt.want.code, response.StatusCode, "wrong status code")
+			assert.Equal(t, tt.want.contentType, response.Header.Get("Content-Type"), "wrong content type")
+			if tt.want.hasResponseBody {
+				_ = json.NewDecoder(response.Body).Decode(responseData)
+				assert.Equal(t, tt.want.response.Result, responseData.Result, "wrong url in response")
+				assert.Equal(t, tt.want.response.ErrMsg, responseData.ErrMsg, "wrong error message in response")
+			}
+		},
+		)
+	}
+
+}
+
 func TestGetURLByIDHandler(t *testing.T) {
-	cfg := config.NewConfig("../../configs/config.yaml")
-	serverAddress := cfg.Server.FullAddress
-	urlDB := storages.NewURLDataBase()
-	shortener := services.NewShortener(urlDB, serverAddress)
+	shortURLAddress := config.BaseURL
+	urlDB := storages.NewMapURLDataBase()
+	shortener := services.NewShortener(urlDB, shortURLAddress)
 	handler := NewURLHandler(shortener, logrus.New())
 	type want struct {
 		code        int

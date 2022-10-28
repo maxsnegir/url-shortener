@@ -10,9 +10,9 @@ import (
 
 // TestSetURL Проверка того, что данные записываются в хранилище
 func TestSetURL(t *testing.T) {
-	cfg := config.NewConfig("../../configs/config.yaml")
-	DB := storages.NewURLDataBase()
-	shortener := NewShortener(DB, cfg.Server.FullAddress)
+	cfg, _ := config.NewConfig()
+	DB := storages.NewMapURLDataBase()
+	shortener := NewShortener(DB, cfg.Shortener.BaseURL)
 	tests := []struct {
 		name     string
 		value    string
@@ -43,9 +43,8 @@ func TestSetURL(t *testing.T) {
 
 // TestGetURLByID Проверка того, что shortener возвращает правильные ссылки по ID
 func TestGetURLByID(t *testing.T) {
-	cfg := config.NewConfig("../../configs/config.yaml")
-	DB := storages.NewURLDataBase()
-	shortener := NewShortener(DB, cfg.Server.FullAddress)
+	DB := storages.NewMapURLDataBase()
+	shortener := NewShortener(DB, config.BaseURL)
 	tests := []struct {
 		name     string
 		value    string
@@ -77,9 +76,8 @@ func TestGetURLByID(t *testing.T) {
 
 // TestParseURL Проверка того, что правильно проверяется валидность URL
 func TestParseURL(t *testing.T) {
-	cfg := config.NewConfig("../../configs/config.yaml")
-	DB := storages.NewURLDataBase()
-	shortener := NewShortener(DB, cfg.Server.FullAddress)
+	DB := storages.NewMapURLDataBase()
+	shortener := NewShortener(DB, config.BaseURL)
 	tests := []struct {
 		name      string
 		value     string
