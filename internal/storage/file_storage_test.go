@@ -1,14 +1,21 @@
-package storages
+package storage
 
 import (
-	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/maxsnegir/url-shortener/internal/utils"
 )
 
 func TestCreatingFileStorage(t *testing.T) {
 	filePath := "temp"
-	defer func() { _ = os.Remove(filePath) }()
+	defer func() {
+		if err := utils.RemoveFile(filePath); err != nil {
+			t.Error(err)
+		}
+	}()
 	_, err := NewFileStorage(filePath)
 	t.Run("Storage created", func(t *testing.T) {
 		require.NoError(t, err, "Error while opening file")
@@ -23,7 +30,11 @@ func TestCreatingFileStorage(t *testing.T) {
 
 func TestFileStorageSetData(t *testing.T) {
 	filePath := "temp"
-	defer func() { _ = os.Remove(filePath) }()
+	defer func() {
+		if err := utils.RemoveFile(filePath); err != nil {
+			t.Error(err)
+		}
+	}()
 	storage, err := NewFileStorage(filePath)
 	tests := []struct {
 		name  string
@@ -63,7 +74,11 @@ func TestFileStorageSetData(t *testing.T) {
 
 func TestStorageIsPersistent(t *testing.T) {
 	filePath := "temp"
-	defer func() { _ = os.Remove(filePath) }()
+	defer func() {
+		if err := utils.RemoveFile(filePath); err != nil {
+			t.Error(err)
+		}
+	}()
 	firstStorage, _ := NewFileStorage(filePath)
 	tests := []struct {
 		key   string

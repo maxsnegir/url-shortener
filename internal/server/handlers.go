@@ -2,11 +2,13 @@ package server
 
 import (
 	"encoding/json"
-	"github.com/gorilla/mux"
-	"github.com/maxsnegir/url-shortener/internal/services"
-	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
+
+	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
+
+	"github.com/maxsnegir/url-shortener/internal/services"
 )
 
 type BaseHandler struct {
@@ -68,6 +70,7 @@ func (h *URLHandler) SetURLJSONHandler() http.HandlerFunc {
 		responseData := &ResponseData{}
 		err := json.NewDecoder(r.Body).Decode(&requestData)
 		if err != nil || requestData.URL == "" {
+			// ToDo Сделать позже через errors wrap/unwrap
 			responseData.ErrorMsg = "Wrong URL type or URL in body is missing"
 			h.JSONResponse(w, http.StatusBadRequest, responseData)
 			return

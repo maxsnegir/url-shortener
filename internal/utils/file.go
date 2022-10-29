@@ -8,7 +8,7 @@ import (
 const (
 	WriteFileMask      = os.O_WRONLY | os.O_CREATE | os.O_APPEND
 	ReadFileMask       = os.O_RDONLY | os.O_CREATE
-	AllFilePermissions = 0777
+	AllFilePermissions = 0644
 )
 
 type FileWriter struct {
@@ -59,10 +59,17 @@ func NewFileWriter(filename string) (*FileWriter, error) {
 func NewFileReader(filename string) (*FileReader, error) {
 	file, err := os.OpenFile(filename, ReadFileMask, AllFilePermissions)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 	return &FileReader{
 		file:    file,
 		scanner: bufio.NewScanner(file),
 	}, nil
+}
+
+func RemoveFile(filename string) error {
+	if err := os.Remove(filename); err != nil {
+		return err
+	}
+	return nil
 }

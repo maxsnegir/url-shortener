@@ -4,9 +4,10 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
-	"github.com/maxsnegir/url-shortener/internal/storages"
 	"net/url"
 	"strings"
+
+	"github.com/maxsnegir/url-shortener/internal/storage"
 )
 
 type URLService interface {
@@ -15,7 +16,7 @@ type URLService interface {
 }
 
 type shortener struct {
-	storage storages.Storage
+	storage storage.Storage
 	hostURL string
 }
 
@@ -37,7 +38,7 @@ func (s *shortener) GetURLByID(urlID string) (string, error) {
 		return originalURL, nil
 	}
 
-	if err == storages.KeyError {
+	if err == storage.KeyError {
 		return "", OriginalURLNotFound{urlID}
 	}
 
@@ -78,7 +79,7 @@ func (s *shortener) getURLIdFromShortURL(shortURL string) string {
 	return ""
 }
 
-func NewShortener(storage storages.Storage, hostURL string) *shortener {
+func NewShortener(storage storage.Storage, hostURL string) *shortener {
 	return &shortener{
 		storage: storage,
 		hostURL: hostURL,
