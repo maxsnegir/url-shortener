@@ -1,7 +1,8 @@
-package storages
+package storage
 
 import (
 	"encoding/json"
+
 	"github.com/maxsnegir/url-shortener/internal/utils"
 )
 
@@ -64,9 +65,13 @@ func (s *FileStorage) loadURLFromFile() error {
 
 }
 
-func (s *FileStorage) shutdown() error {
-	_ = s.FileWriter.Close()
-	_ = s.FileReader.Close()
+func (s *FileStorage) Shutdown() error {
+	if err := s.FileWriter.Close(); err != nil {
+		return err
+	}
+	if err := s.FileReader.Close(); err != nil {
+		return err
+	}
 	return nil
 
 }

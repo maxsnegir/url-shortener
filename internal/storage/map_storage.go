@@ -1,4 +1,4 @@
-package storages
+package storage
 
 // MapURLDataBase In-Memory хранилище
 type MapURLDataBase map[string]string
@@ -16,7 +16,7 @@ func (db MapURLDataBase) Get(key string) (string, error) {
 	return value, nil
 }
 
-func (db MapURLDataBase) shutdown() error {
+func (db MapURLDataBase) Shutdown() error {
 	return nil
 }
 

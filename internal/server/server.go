@@ -1,10 +1,12 @@
 package server
 
 import (
-	"github.com/gorilla/mux"
-	"github.com/maxsnegir/url-shortener/cmd/config"
-	"github.com/sirupsen/logrus"
 	"net/http"
+
+	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
+
+	"github.com/maxsnegir/url-shortener/cmd/config"
 )
 
 type server struct {

@@ -1,8 +1,9 @@
 package logging
 
 import (
-	"github.com/sirupsen/logrus"
 	"log"
+
+	"github.com/sirupsen/logrus"
 )
 
 func NewLogger(logLevel string) *logrus.Logger {

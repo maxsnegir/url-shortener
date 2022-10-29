@@ -4,22 +4,25 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/maxsnegir/url-shortener/cmd/config"
-	"github.com/maxsnegir/url-shortener/internal/services"
-	"github.com/maxsnegir/url-shortener/internal/storages"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/maxsnegir/url-shortener/cmd/config"
+	"github.com/maxsnegir/url-shortener/internal/services"
+	"github.com/maxsnegir/url-shortener/internal/storage"
 )
 
 func TestSetURLTextHandler(t *testing.T) {
 	shortURLAddress := config.BaseURL
-	urlDB := storages.NewMapURLDataBase()
+	urlDB := storage.NewMapURLDataBase()
 	shortener := services.NewShortener(urlDB, shortURLAddress)
 	handler := NewURLHandler(shortener, logrus.New())
 	type want struct {
@@ -98,7 +101,7 @@ func TestSetURLTextHandler(t *testing.T) {
 
 func TestSetURLJSONHandler(t *testing.T) {
 	shortURLAddress := config.BaseURL
-	urlDB := storages.NewMapURLDataBase()
+	urlDB := storage.NewMapURLDataBase()
 	shortener := services.NewShortener(urlDB, shortURLAddress)
 	handler := NewURLHandler(shortener, logrus.New())
 	type ResponseData struct {
@@ -179,7 +182,7 @@ func TestSetURLJSONHandler(t *testing.T) {
 			assert.Equal(t, tt.want.code, response.StatusCode, "wrong status code")
 			assert.Equal(t, tt.want.contentType, response.Header.Get("Content-Type"), "wrong content type")
 			if tt.want.hasResponseBody {
-				_ = json.NewDecoder(response.Body).Decode(responseData)
+				require.NoError(t, json.NewDecoder(response.Body).Decode(responseData))
 				assert.Equal(t, tt.want.response.Result, responseData.Result, "wrong url in response")
 				assert.Equal(t, tt.want.response.ErrMsg, responseData.ErrMsg, "wrong error message in response")
 			}
@@ -191,7 +194,7 @@ func TestSetURLJSONHandler(t *testing.T) {
 
 func TestGetURLByIDHandler(t *testing.T) {
 	shortURLAddress := config.BaseURL
-	urlDB := storages.NewMapURLDataBase()
+	urlDB := storage.NewMapURLDataBase()
 	shortener := services.NewShortener(urlDB, shortURLAddress)
 	handler := NewURLHandler(shortener, logrus.New())
 	type want struct {

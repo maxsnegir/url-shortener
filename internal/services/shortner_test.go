@@ -1,17 +1,19 @@
 package services
 
 import (
-	"github.com/maxsnegir/url-shortener/cmd/config"
-	"github.com/maxsnegir/url-shortener/internal/storages"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
+
+	"github.com/maxsnegir/url-shortener/cmd/config"
+	"github.com/maxsnegir/url-shortener/internal/storage"
 )
 
 // TestSetURL Проверка того, что данные записываются в хранилище
 func TestSetURL(t *testing.T) {
 	cfg, _ := config.NewConfig()
-	DB := storages.NewMapURLDataBase()
+	DB := storage.NewMapURLDataBase()
 	shortener := NewShortener(DB, cfg.Shortener.BaseURL)
 	tests := []struct {
 		name     string
@@ -43,7 +45,7 @@ func TestSetURL(t *testing.T) {
 
 // TestGetURLByID Проверка того, что shortener возвращает правильные ссылки по ID
 func TestGetURLByID(t *testing.T) {
-	DB := storages.NewMapURLDataBase()
+	DB := storage.NewMapURLDataBase()
 	shortener := NewShortener(DB, config.BaseURL)
 	tests := []struct {
 		name     string
@@ -76,7 +78,7 @@ func TestGetURLByID(t *testing.T) {
 
 // TestParseURL Проверка того, что правильно проверяется валидность URL
 func TestParseURL(t *testing.T) {
-	DB := storages.NewMapURLDataBase()
+	DB := storage.NewMapURLDataBase()
 	shortener := NewShortener(DB, config.BaseURL)
 	tests := []struct {
 		name      string
