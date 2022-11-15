@@ -13,7 +13,7 @@ import (
 // TestSetURL Проверка того, что данные записываются в хранилище
 func TestSetURL(t *testing.T) {
 	cfg, _ := config.NewConfig()
-	DB := storage.NewMapURLDataBase()
+	DB := storage.NewURLStorage(storage.NewMapStorage())
 	shortener := NewShortener(DB, cfg.Shortener.BaseURL)
 	tests := []struct {
 		name     string
@@ -33,10 +33,9 @@ func TestSetURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			shortURL, err := shortener.SetURL(tt.value)
+			shortURL, err := shortener.SetShortURL("", tt.value)
 			require.NoError(t, err, "Error while set URL")
-			urlID := shortener.getURLIdFromShortURL(shortURL)
-			value, err := DB.Get(urlID)
+			value, err := DB.GetOriginalURL(shortURL)
 			require.NoError(t, err, "Error while get data from DB")
 			assert.Equal(t, tt.expected, value, "unexpected value")
 		})
@@ -45,7 +44,7 @@ func TestSetURL(t *testing.T) {
 
 // TestGetURLByID Проверка того, что shortener возвращает правильные ссылки по ID
 func TestGetURLByID(t *testing.T) {
-	DB := storage.NewMapURLDataBase()
+	DB := storage.NewURLStorage(storage.NewMapStorage())
 	shortener := NewShortener(DB, config.BaseURL)
 	tests := []struct {
 		name     string
@@ -66,10 +65,9 @@ func TestGetURLByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			shortURL, err := shortener.SetURL(tt.value)
+			shortURL, err := shortener.SetShortURL("", tt.value)
 			require.NoError(t, err, "Error while setting URL")
-			urlID := shortener.getURLIdFromShortURL(shortURL)
-			originalURL, err := shortener.GetURLByID(urlID)
+			originalURL, err := DB.GetOriginalURL(shortURL)
 			require.NoError(t, err, "Error while getting original URL")
 			assert.Equal(t, originalURL, tt.expected, "GetURLByID return wrong data")
 		})
@@ -78,7 +76,7 @@ func TestGetURLByID(t *testing.T) {
 
 // TestParseURL Проверка того, что правильно проверяется валидность URL
 func TestParseURL(t *testing.T) {
-	DB := storage.NewMapURLDataBase()
+	DB := storage.NewURLStorage(storage.NewMapStorage())
 	shortener := NewShortener(DB, config.BaseURL)
 	tests := []struct {
 		name      string

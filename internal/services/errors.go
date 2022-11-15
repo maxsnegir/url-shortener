@@ -7,7 +7,7 @@ type OriginalURLNotFound struct {
 }
 
 func (e OriginalURLNotFound) Error() string {
-	return fmt.Sprintf("Requested url id = '%s' not found", e.URLID)
+	return fmt.Sprintf("Original url for '%s' not found", e.URLID)
 }
 
 type URLIsNotValidError struct {

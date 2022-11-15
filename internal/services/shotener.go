@@ -4,60 +4,48 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
-	"net/url"
-	"strings"
-
 	"github.com/maxsnegir/url-shortener/internal/storage"
+	"net/url"
 )
 
 type URLService interface {
-	SetURL(url string) (string, error)
-	GetURLByID(urlID string) (string, error)
+	SetShortURL(userID, url string) (string, error)
+	GetOriginalURLByShort(shortURLID string) (string, error)
+	GetAllUserURLs(userID string) ([]storage.URLData, error)
+	GetHostURL() string
 }
 
 type shortener struct {
-	storage storage.Storage
+	storage storage.ShortenerStorage
 	hostURL string
 }
 
-func (s *shortener) SetURL(url string) (string, error) {
+func (s *shortener) SetShortURL(userID string, url string) (string, error) {
 	if err := s.isURLValid(url); err != nil {
 		return "", err
 	}
 	urlHash := s.getURLHash(url)
-	if err := s.saveURL(urlHash, url); err != nil {
+
+	urlData := storage.URLData{
+		ShortURL:    fmt.Sprintf("%s/%s/", s.hostURL, urlHash),
+		OriginalURL: url,
+	}
+	if err := s.saveURL(userID, urlData); err != nil {
 		return "", err
 	}
-	shortURL := fmt.Sprintf("%s/%s/", s.hostURL, urlHash)
-	return shortURL, nil
-}
-
-func (s *shortener) GetURLByID(urlID string) (string, error) {
-	originalURL, err := s.storage.Get(urlID)
-	if err == nil {
-		return originalURL, nil
-	}
-
-	if err == storage.KeyError {
-		return "", OriginalURLNotFound{urlID}
-	}
-
-	return "", err
-}
-
-func (s *shortener) saveURL(urlID, originalURL string) error {
-	if err := s.storage.Set(urlID, originalURL); err != nil {
-		return err
-	}
-	return nil
+	return urlData.ShortURL, nil
 }
 
 func (s *shortener) isURLValid(URL string) error {
 	u, err := url.Parse(URL)
 	if err != nil || (u.Scheme == "" || u.Host == "") {
-		return URLIsNotValidError{URL: u.String()}
+		return URLIsNotValidError{URL: URL}
 	}
 	return nil
+}
+
+func (s *shortener) GetHostURL() string {
+	return s.hostURL
 }
 
 func (s *shortener) getURLHash(URL string) string {
@@ -67,21 +55,46 @@ func (s *shortener) getURLHash(URL string) string {
 	return sha[:8]
 }
 
-func (s *shortener) getURLIdFromShortURL(shortURL string) string {
-	URL, err := url.Parse(shortURL)
-	if err != nil {
-		return ""
+func (s *shortener) saveURL(userID string, urlData storage.URLData) error {
+	if err := s.storage.SetShortURL(urlData); err != nil {
+		return err
 	}
-	params := strings.Split(URL.Path, "/")
-	if len(params) == 3 {
-		return params[1]
+	if err := s.storage.SetUserURL(userID, urlData.ShortURL); err != nil {
+		return err
 	}
-	return ""
+	return nil
 }
 
-func NewShortener(storage storage.Storage, hostURL string) *shortener {
+func (s *shortener) GetOriginalURLByShort(shortURL string) (string, error) {
+	originalURL, err := s.storage.GetOriginalURL(shortURL)
+	if err != nil {
+		return "", OriginalURLNotFound{shortURL}
+	}
+	return originalURL, nil
+}
+
+func (s *shortener) GetAllUserURLs(userID string) ([]storage.URLData, error) {
+	var userURLs []storage.URLData
+	shortURLs, err := s.storage.GetUserURLs(userID)
+	if err != nil {
+		return userURLs, err
+	}
+	for _, shortURL := range shortURLs {
+		originalURL, err := s.storage.GetOriginalURL(shortURL)
+		if err != nil {
+			continue
+		}
+		userURLs = append(userURLs, storage.URLData{
+			ShortURL:    shortURL,
+			OriginalURL: originalURL,
+		})
+	}
+	return userURLs, nil
+}
+
+func NewShortener(urlStorage storage.ShortenerStorage, hostURL string) *shortener {
 	return &shortener{
-		storage: storage,
+		storage: urlStorage,
 		hostURL: hostURL,
 	}
 }
