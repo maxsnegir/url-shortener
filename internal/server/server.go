@@ -7,13 +7,14 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/maxsnegir/url-shortener/cmd/config"
+	"github.com/maxsnegir/url-shortener/internal/handlers"
 )
 
 type server struct {
 	config     config.Config
 	logger     *logrus.Logger
 	router     *mux.Router
-	urlHandler URLHandler
+	urlHandler handlers.URLHandler
 }
 
 func (s *server) Start() error {
@@ -30,12 +31,14 @@ func (s *server) configureRouter() {
 	s.router.HandleFunc("/", s.urlHandler.SetURLTextHandler()).Methods(http.MethodPost)
 	s.router.HandleFunc("/api/shorten", s.urlHandler.SetURLJSONHandler()).Methods(http.MethodPost)
 	s.router.HandleFunc("/{urlID}/", s.urlHandler.GetURLByIDHandler()).Methods(http.MethodGet)
-	s.router.Use(s.LoggingMiddleware)
-	s.router.Use(s.GzipMiddleware)
-	s.router.Use(s.UnzipMiddleware)
+	s.router.HandleFunc("/api/user/urls", s.urlHandler.GetAllUserURLs()).Methods(http.MethodGet)
+	s.router.Use(s.urlHandler.CookieAuthenticationMiddleware)
+	s.router.Use(s.urlHandler.LoggingMiddleware)
+	s.router.Use(s.urlHandler.GzipMiddleware)
+	s.router.Use(s.urlHandler.UnzipMiddleware)
 }
 
-func NewServer(cfg config.Config, logger *logrus.Logger, urlHandler URLHandler) *server {
+func NewServer(cfg config.Config, logger *logrus.Logger, urlHandler handlers.URLHandler) *server {
 	return &server{
 		router:     mux.NewRouter(),
 		config:     cfg,

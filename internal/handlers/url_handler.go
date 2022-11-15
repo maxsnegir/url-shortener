@@ -1,52 +1,34 @@
-package server
+package handlers
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/gorilla/mux"
 	"io"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 
+	"github.com/maxsnegir/url-shortener/internal/auth"
 	"github.com/maxsnegir/url-shortener/internal/services"
 )
 
-type BaseHandler struct {
-	logger *logrus.Logger
-}
-
-func (h *BaseHandler) TextResponse(w http.ResponseWriter, code int, data string) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(code)
-
-	if _, err := w.Write([]byte(data)); err != nil {
-		h.logger.Error(err)
-	}
-}
-
-func (h *BaseHandler) JSONResponse(w http.ResponseWriter, code int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		h.logger.Error(err)
-	}
-}
-
 type URLHandler struct {
 	BaseHandler
-	shortener services.URLService
+	shortener      services.URLService
+	authentication auth.CookieAuthentication
 }
 
 func (h *URLHandler) SetURLTextHandler() http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		userID := r.Context().Value("userID").(string)
 		url, err := io.ReadAll(r.Body)
 		if err != nil || len(url) == 0 {
 			h.TextResponse(w, http.StatusUnprocessableEntity, "URL in request body is missing")
 			return
 		}
-		shortURL, err := h.shortener.SetURL(string(url))
+		shortURL, err := h.shortener.SetShortURL(userID, string(url))
 		if err != nil {
 			errMsg, statusCode := h.processSetURLError(err)
 			h.TextResponse(w, statusCode, errMsg)
@@ -68,6 +50,7 @@ func (h *URLHandler) SetURLJSONHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestData := &RequestData{}
 		responseData := &ResponseData{}
+		userID := r.Context().Value("userID").(string)
 		err := json.NewDecoder(r.Body).Decode(&requestData)
 		if err != nil || requestData.URL == "" {
 			// ToDo Сделать позже через errors wrap/unwrap
@@ -75,7 +58,7 @@ func (h *URLHandler) SetURLJSONHandler() http.HandlerFunc {
 			h.JSONResponse(w, http.StatusBadRequest, responseData)
 			return
 		}
-		shortURL, err := h.shortener.SetURL(requestData.URL)
+		shortURL, err := h.shortener.SetShortURL(userID, requestData.URL)
 		if err != nil {
 			errMsg, statusCode := h.processSetURLError(err)
 			responseData.ErrorMsg = errMsg
@@ -84,6 +67,45 @@ func (h *URLHandler) SetURLJSONHandler() http.HandlerFunc {
 		}
 		responseData.Result = shortURL
 		h.JSONResponse(w, http.StatusCreated, responseData)
+	}
+}
+
+func (h *URLHandler) GetURLByIDHandler() http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID := r.Context().Value("userID").(string)
+		vars := mux.Vars(r)
+		urlID := vars["urlID"]
+		shortURL := fmt.Sprintf("%s/%s/", h.shortener.GetHostURL(), urlID)
+		originalURL, err := h.shortener.GetOriginalURLByShort(userID, shortURL)
+		if err != nil {
+			switch err.(type) {
+			case services.OriginalURLNotFound:
+				h.TextResponse(w, http.StatusNotFound, err.Error())
+			default:
+				h.logger.Error(err)
+				h.TextResponse(w, http.StatusInternalServerError, InternalServerError.Error())
+			}
+			return
+		}
+		w.Header().Add("Location", originalURL)
+		h.TextResponse(w, http.StatusTemporaryRedirect, "")
+	}
+}
+
+func (h *URLHandler) GetAllUserURLs() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID := r.Context().Value("userID").(string)
+		userURLs, err := h.shortener.GetAllUserURLs(userID)
+		if err != nil {
+			h.JSONResponse(w, http.StatusInternalServerError, InternalServerError.Error())
+			return
+		}
+		if len(userURLs) == 0 {
+			h.JSONResponse(w, http.StatusNoContent, userURLs)
+			return
+		}
+		h.JSONResponse(w, http.StatusOK, userURLs)
 	}
 }
 
@@ -102,30 +124,10 @@ func (h *URLHandler) processSetURLError(err error) (string, int) {
 	return errMsg, statusCode
 }
 
-func (h *URLHandler) GetURLByIDHandler() http.HandlerFunc {
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		urlID := vars["urlID"]
-		originalURL, err := h.shortener.GetURLByID(urlID)
-		if err != nil {
-			switch err.(type) {
-			case services.OriginalURLNotFound:
-				h.TextResponse(w, http.StatusNotFound, err.Error())
-			default:
-				h.logger.Error(err)
-				h.TextResponse(w, http.StatusInternalServerError, InternalServerError.Error())
-			}
-			return
-		}
-		w.Header().Add("Location", originalURL)
-		h.TextResponse(w, http.StatusTemporaryRedirect, "")
-	}
-}
-
-func NewURLHandler(shortener services.URLService, logger *logrus.Logger) URLHandler {
+func NewURLHandler(shortener services.URLService, auth auth.CookieAuthentication, logger *logrus.Logger) URLHandler {
 	return URLHandler{
-		BaseHandler: BaseHandler{logger: logger},
-		shortener:   shortener,
+		BaseHandler:    BaseHandler{logger: logger},
+		shortener:      shortener,
+		authentication: auth,
 	}
 }

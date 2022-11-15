@@ -6,6 +6,8 @@ import (
 	"os/signal"
 
 	"github.com/maxsnegir/url-shortener/cmd/config"
+	"github.com/maxsnegir/url-shortener/internal/auth"
+	"github.com/maxsnegir/url-shortener/internal/handlers"
 	"github.com/maxsnegir/url-shortener/internal/logging"
 	"github.com/maxsnegir/url-shortener/internal/server"
 	"github.com/maxsnegir/url-shortener/internal/services"
@@ -18,7 +20,7 @@ func main() {
 		log.Fatal(err)
 	}
 	logger := logging.NewLogger(cfg.Logger.LogLevel)
-	stor, err := storage.GetStorage(cfg)
+	stor, err := storage.GetURLStorage(cfg)
 	if err != nil {
 		switch err.(type) {
 		// Если случилась ошибка при загрузке данных из файла - все равно продолжим работу
@@ -29,7 +31,11 @@ func main() {
 		}
 	}
 	shortener := services.NewShortener(stor, cfg.Shortener.BaseURL)
-	urlHandler := server.NewURLHandler(shortener, logger)
+	authorization, err := auth.NewCookieAuthentication(cfg.Authorization.SecretKey)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	urlHandler := handlers.NewURLHandler(shortener, authorization, logger)
 	s := server.NewServer(cfg, logger, urlHandler)
 	go func() {
 		logger.Fatal(s.Start())

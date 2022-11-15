@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"os"
 	"testing"
 
@@ -16,8 +17,8 @@ func TestCreatingFileStorage(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	_, err := NewFileStorage(filePath)
-	t.Run("Storage created", func(t *testing.T) {
+	_, err := NewURLFileStorage(filePath, NewURLMapStorage())
+	t.Run("MapStorage created", func(t *testing.T) {
 		require.NoError(t, err, "Error while opening file")
 	})
 	t.Run("File created and correct", func(t *testing.T) {
@@ -35,7 +36,7 @@ func TestFileStorageSetData(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	storage, err := NewFileStorage(filePath)
+	storage, err := NewURLFileStorage(filePath, NewURLMapStorage())
 	tests := []struct {
 		name  string
 		key   string
@@ -57,17 +58,17 @@ func TestFileStorageSetData(t *testing.T) {
 			value: "",
 		},
 	}
-	t.Run("Storage created", func(t *testing.T) {
+	t.Run("MapStorage created", func(t *testing.T) {
 		require.NoError(t, err, "Error while creating storage")
 	})
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := storage.Set(tt.key, tt.value)
+			err := storage.Set(tt.key, []byte(tt.value))
 			require.NoError(t, err, "Error while setting storage")
 			value, err := storage.Get(tt.key)
 			require.NoError(t, err, "Error while getting from storage")
-			require.Equal(t, tt.value, value, "Wrong value from Get() ")
+			require.Equal(t, tt.value, string(value), "Wrong value from Get() ")
 		})
 	}
 }
@@ -79,35 +80,44 @@ func TestStorageIsPersistent(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	firstStorage, _ := NewFileStorage(filePath)
-	tests := []struct {
-		key   string
-		value string
-	}{
+	tests := []UserURL{
 		{
-			key:   "Key 1",
-			value: "value",
+			UserID: "12",
+			URLData: URLData{
+				ShortURL:    "http://localhost:8080/nzsq/",
+				OriginalURL: "http://localhost:8080",
+			},
 		},
 		{
-			key:   "Key 2",
-			value: "value 2",
+			UserID: "10",
+			URLData: URLData{
+				ShortURL:    "http://localhost:8080/nzsqS1/",
+				OriginalURL: "http://practicum.com",
+			},
 		},
 		{
-			key:   "Key 2",
-			value: "value 2",
+			URLData: URLData{
+				OriginalURL: "http://practicum.com",
+			},
 		},
 	}
+	firstStorage, err := NewURLFileStorage(filePath, NewURLMapStorage())
+	require.NoError(t, err, "Error creating storage")
 	for _, dt := range tests {
-		_ = firstStorage.Set(dt.key, dt.value)
+		require.NoError(t, firstStorage.SetURLData(dt.UserID, dt.URLData), "Error while setting data")
 	}
 
-	secondStorage, _ := NewFileStorage(filePath)
+	secondStorage, err := NewURLFileStorage(filePath, NewURLMapStorage())
+	require.NoError(t, err, "Error while creating storage")
 
 	for _, tt := range tests {
 		t.Run("Data in another storage exist", func(t *testing.T) {
-			value, err := secondStorage.Get(tt.key)
-			require.NoError(t, err, "Error while getting value from second storage.")
-			require.Equal(t, tt.value, value, "Data in second storage is wrong.")
+			bytesFromFirstStorage, err := secondStorage.Get(tt.UserID)
+			require.NoError(t, err, "error while getting value from first storage")
+			bytesFromSecondStorage, err := secondStorage.Get(tt.UserID)
+			require.NoError(t, err, "error while getting value from second storage")
+			isEqual := bytes.Equal(bytesFromFirstStorage, bytesFromSecondStorage)
+			require.True(t, isEqual, "Data in storages are different")
 		})
 	}
 }

@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"bytes"
@@ -16,15 +16,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/maxsnegir/url-shortener/cmd/config"
+	"github.com/maxsnegir/url-shortener/internal/auth"
 	"github.com/maxsnegir/url-shortener/internal/services"
 	"github.com/maxsnegir/url-shortener/internal/storage"
 )
 
 func TestSetURLTextHandler(t *testing.T) {
 	shortURLAddress := config.BaseURL
-	urlDB := storage.NewMapURLDataBase()
+	urlDB := storage.NewURLMapStorage()
 	shortener := services.NewShortener(urlDB, shortURLAddress)
-	handler := NewURLHandler(shortener, logrus.New())
+	authorization, _ := auth.NewCookieAuthentication("secretKey")
+	handler := NewURLHandler(shortener, authorization, logrus.New())
 	type want struct {
 		code        int
 		response    string
@@ -84,6 +86,7 @@ func TestSetURLTextHandler(t *testing.T) {
 			request := httptest.NewRequest(tt.method, "/", body)
 			router := mux.NewRouter()
 			router.HandleFunc("/", handler.SetURLTextHandler()).Methods(http.MethodPost)
+			router.Use(handler.CookieAuthenticationMiddleware)
 			router.ServeHTTP(w, request)
 
 			response := w.Result()
@@ -101,9 +104,10 @@ func TestSetURLTextHandler(t *testing.T) {
 
 func TestSetURLJSONHandler(t *testing.T) {
 	shortURLAddress := config.BaseURL
-	urlDB := storage.NewMapURLDataBase()
+	urlDB := storage.NewURLMapStorage()
 	shortener := services.NewShortener(urlDB, shortURLAddress)
-	handler := NewURLHandler(shortener, logrus.New())
+	authorization, _ := auth.NewCookieAuthentication("secretKey")
+	handler := NewURLHandler(shortener, authorization, logrus.New())
 	type ResponseData struct {
 		Result string `json:"result"`
 		ErrMsg string `json:"error,omitempty"`
@@ -174,6 +178,7 @@ func TestSetURLJSONHandler(t *testing.T) {
 			request := httptest.NewRequest(tt.method, "/api/shorten", bytes.NewBuffer(jsonStr))
 			router := mux.NewRouter()
 			router.HandleFunc("/api/shorten", handler.SetURLJSONHandler()).Methods(http.MethodPost)
+			router.Use(handler.CookieAuthenticationMiddleware)
 			router.ServeHTTP(writer, request)
 			response := writer.Result()
 			defer response.Body.Close()
@@ -194,9 +199,10 @@ func TestSetURLJSONHandler(t *testing.T) {
 
 func TestGetURLByIDHandler(t *testing.T) {
 	shortURLAddress := config.BaseURL
-	urlDB := storage.NewMapURLDataBase()
+	urlDB := storage.NewURLMapStorage()
 	shortener := services.NewShortener(urlDB, shortURLAddress)
-	handler := NewURLHandler(shortener, logrus.New())
+	authorization, _ := auth.NewCookieAuthentication("secretKey")
+	handler := NewURLHandler(shortener, authorization, logrus.New())
 	type want struct {
 		code        int
 		response    string
@@ -208,6 +214,7 @@ func TestGetURLByIDHandler(t *testing.T) {
 		name   string
 		want   want
 		url    string
+		userID string
 		method string
 	}{
 		{
@@ -219,6 +226,7 @@ func TestGetURLByIDHandler(t *testing.T) {
 				location:    "https://practicum.yandex.ru/",
 			},
 			url:    "https://practicum.yandex.ru/",
+			userID: "192.0.2.1",
 			method: http.MethodGet,
 		},
 		{
@@ -227,6 +235,7 @@ func TestGetURLByIDHandler(t *testing.T) {
 				code: http.StatusMethodNotAllowed,
 			},
 			url:    "https://practicum.yandex.ru/",
+			userID: "192.0.2.1",
 			method: http.MethodPost,
 		},
 	}
@@ -235,8 +244,9 @@ func TestGetURLByIDHandler(t *testing.T) {
 			w := httptest.NewRecorder()
 			router := mux.NewRouter()
 			router.HandleFunc("/{urlID}/", handler.GetURLByIDHandler()).Methods(http.MethodGet)
-			shortURL, _ := shortener.SetURL(tt.url)
+			shortURL, _ := shortener.SetShortURL(tt.userID, tt.url)
 			request := httptest.NewRequest(tt.method, shortURL, nil)
+			router.Use(handler.CookieAuthenticationMiddleware)
 			router.ServeHTTP(w, request)
 			response := w.Result()
 			defer response.Body.Close()
