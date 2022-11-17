@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"log"
 	"os"
@@ -44,7 +45,7 @@ func main() {
 	// Block until we receive our signal.
 	<-c
 	logger.Infof("shutting down by signal")
-	if err = urlStorage.Shutdown(); err != nil {
+	if err = urlStorage.Shutdown(context.Background()); err != nil {
 		logger.Error(err)
 	}
 	os.Exit(0)

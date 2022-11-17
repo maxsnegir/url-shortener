@@ -1,11 +1,13 @@
 package services
 
 import (
+	"context"
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
-	"github.com/maxsnegir/url-shortener/internal/storage"
 	"net/url"
+
+	"github.com/maxsnegir/url-shortener/internal/storage"
 )
 
 type URLService interface {
@@ -13,6 +15,7 @@ type URLService interface {
 	GetOriginalURLByShort(shortURLID string) (string, error)
 	GetAllUserURLs(userID string) ([]storage.URLData, error)
 	GetHostURL() string
+	Ping(ctx context.Context) error
 }
 
 type shortener struct {
@@ -90,6 +93,10 @@ func (s *shortener) GetAllUserURLs(userID string) ([]storage.URLData, error) {
 		})
 	}
 	return userURLs, nil
+}
+
+func (s *shortener) Ping(ctx context.Context) error {
+	return s.storage.Ping(ctx)
 }
 
 func NewShortener(urlStorage storage.ShortenerStorage, hostURL string) *shortener {

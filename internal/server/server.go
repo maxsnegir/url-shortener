@@ -32,6 +32,7 @@ func (s *server) configureRouter() {
 	s.router.HandleFunc("/api/shorten", s.urlHandler.SetURLJSONHandler()).Methods(http.MethodPost)
 	s.router.HandleFunc("/{urlID}/", s.urlHandler.GetURLByIDHandler()).Methods(http.MethodGet)
 	s.router.HandleFunc("/api/user/urls", s.urlHandler.GetAllUserURLs()).Methods(http.MethodGet)
+	s.router.HandleFunc("/ping", s.urlHandler.Ping()).Methods(http.MethodGet)
 	s.router.Use(s.urlHandler.CookieAuthenticationMiddleware)
 	s.router.Use(s.urlHandler.LoggingMiddleware)
 	s.router.Use(s.urlHandler.GzipMiddleware)

@@ -1,5 +1,7 @@
 package storage
 
+import "context"
+
 // MapStorage In-Memory хранилище
 type MapStorage map[string][]byte
 
@@ -16,7 +18,7 @@ func (db MapStorage) Get(key string) ([]byte, error) {
 	return value, nil
 }
 
-func (db MapStorage) Shutdown() error {
+func (db MapStorage) Shutdown(ctx context.Context) error {
 	return nil
 }
 

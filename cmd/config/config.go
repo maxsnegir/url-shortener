@@ -11,6 +11,7 @@ const (
 	LogLevel        = "DEBUG"
 	BaseURL         = "http://localhost:8080"
 	FileStoragePath = ""
+	DatabaseDsn     = ""
 )
 
 // Config common settings for web application
@@ -22,11 +23,14 @@ type Config struct {
 		LogLevel string
 	}
 	Shortener struct {
-		BaseURL         string
-		FileStoragePath string
+		BaseURL string
 	}
 	Authorization struct {
 		SecretKey string `env:"SECRET_KEY" envDefault:"super_secret"`
+	}
+	Storage struct {
+		FileStoragePath string
+		DatabaseDSN     string
 	}
 }
 
@@ -38,8 +42,9 @@ func NewConfig() (Config, error) {
 	}
 	flag.StringVar(&cfg.Server.ServerAddress, "a", utils.GetEnv("SERVER_ADDRESS", ServerAddress), "server address")
 	flag.StringVar(&cfg.Shortener.BaseURL, "b", utils.GetEnv("BASE_URL", BaseURL), "base shortener address")
-	flag.StringVar(&cfg.Shortener.FileStoragePath, "f", utils.GetEnv("FILE_STORAGE_PATH", FileStoragePath), "name of file storage")
+	flag.StringVar(&cfg.Storage.FileStoragePath, "f", utils.GetEnv("FILE_STORAGE_PATH", FileStoragePath), "name of file storage")
 	flag.StringVar(&cfg.Logger.LogLevel, "l", utils.GetEnv("LOG_LEVEL", LogLevel), "set log level")
+	flag.StringVar(&cfg.Storage.DatabaseDSN, "d", utils.GetEnv("DATABASE_DSN", DatabaseDsn), "db dsn")
 	flag.Parse()
 	return cfg, nil
 }

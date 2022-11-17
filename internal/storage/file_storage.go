@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/maxsnegir/url-shortener/internal/utils"
@@ -56,7 +57,7 @@ func (s *FileStorage) loadDumpFromFile() error {
 	}
 	return nil
 }
-func (s *FileStorage) Shutdown() error {
+func (s *FileStorage) Shutdown(ctx context.Context) error {
 	if err := s.FileWriter.Close(); err != nil {
 		return err
 	}

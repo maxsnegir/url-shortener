@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -106,6 +108,20 @@ func (h *URLHandler) GetAllUserURLs() http.HandlerFunc {
 			return
 		}
 		h.JSONResponse(w, http.StatusOK, userURLs)
+	}
+}
+
+func (h *URLHandler) Ping() http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+		if err := h.shortener.Ping(ctx); err != nil {
+			h.TextResponse(w, http.StatusInternalServerError, "")
+			return
+		}
+		h.TextResponse(w, http.StatusOK, "")
+		return
 	}
 }
 

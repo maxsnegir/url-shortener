@@ -1,6 +1,9 @@
 package storage
 
-import "encoding/json"
+import (
+	"context"
+	"encoding/json"
+)
 
 type URLStorage struct {
 	userURLStorage Storage
@@ -49,11 +52,15 @@ func (s *URLStorage) SetUserURL(userID string, shortURL string) error {
 	return s.userURLStorage.Set(userID, encodedURLs)
 }
 
-func (s *URLStorage) Shutdown() error {
-	if err := s.urlStorage.Shutdown(); err != nil {
+func (s *URLStorage) Ping(ctx context.Context) error {
+	return nil
+}
+
+func (s *URLStorage) Shutdown(ctx context.Context) error {
+	if err := s.urlStorage.Shutdown(ctx); err != nil {
 		return err
 	}
-	return s.userURLStorage.Shutdown()
+	return s.userURLStorage.Shutdown(ctx)
 }
 
 func NewURLStorage(urlStorage Storage) *URLStorage {

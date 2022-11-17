@@ -1,6 +1,10 @@
 package storage
 
-import "github.com/maxsnegir/url-shortener/cmd/config"
+import (
+	"context"
+
+	"github.com/maxsnegir/url-shortener/cmd/config"
+)
 
 type URLData struct {
 	ShortURL    string `json:"short_url"`
@@ -10,7 +14,7 @@ type URLData struct {
 type Storage interface {
 	Set(key string, value []byte) error
 	Get(key string) ([]byte, error)
-	Shutdown() error
+	Shutdown(ctx context.Context) error
 }
 
 type ShortenerStorage interface {
@@ -18,18 +22,24 @@ type ShortenerStorage interface {
 	SetShortURL(urlData URLData) error
 	GetUserURLs(userID string) ([]string, error)
 	SetUserURL(userID string, shortURL string) error
-	Shutdown() error
+	Shutdown(ctx context.Context) error
+	Ping(ctx context.Context) error
 }
 
 func GetURLStorage(cfg config.Config) (ShortenerStorage, error) {
-	switch cfg.Shortener.FileStoragePath {
-	case "":
-		return NewURLStorage(NewMapStorage()), nil
-	default:
-		fileStorage, err := NewURLFileStorage(cfg.Shortener.FileStoragePath)
-		if err != nil {
-			return nil, err
-		}
-		return NewURLStorage(fileStorage), nil
+	//PostgresStorage
+	if cfg.Storage.DatabaseDSN != "" {
+		return NewPostgresStorage(context.Background(), cfg.Storage.DatabaseDSN)
 	}
+	//MapStorage
+	if cfg.Storage.FileStoragePath == "" {
+		return NewURLStorage(NewMapStorage()), nil
+	}
+	//FileStorage
+	fileStorage, err := NewURLFileStorage(cfg.Storage.FileStoragePath)
+	if err != nil {
+		return nil, err
+	}
+	return NewURLStorage(fileStorage), nil
+
 }
