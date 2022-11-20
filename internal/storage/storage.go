@@ -7,8 +7,8 @@ import (
 )
 
 type URLData struct {
-	ShortURL    string `json:"short_url"`
-	OriginalURL string `json:"original_url"`
+	ShortURL    string `json:"short_url" db:"short_url"`
+	OriginalURL string `json:"original_url" db:"original_url"`
 }
 
 type Storage interface {
@@ -18,9 +18,10 @@ type Storage interface {
 }
 
 type ShortenerStorage interface {
-	GetOriginalURL(shortURL string) (string, error)
+	GetOriginalURL(ctx context.Context, shortURL string) (string, error)
+	SaveData(ctx context.Context, userID string, urlData URLData) error
 	SetShortURL(urlData URLData) error
-	GetUserURLs(userID string) ([]string, error)
+	GetUserURLs(ctx context.Context, userID string) ([]URLData, error)
 	SetUserURL(userID string, shortURL string) error
 	Shutdown(ctx context.Context) error
 	Ping(ctx context.Context) error

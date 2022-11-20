@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -33,9 +34,9 @@ func TestSetURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			shortURL, err := shortener.SetShortURL("", tt.value)
+			shortURL, err := shortener.SetShortURL(context.Background(), "", tt.value)
 			require.NoError(t, err, "Error while set URL")
-			value, err := DB.GetOriginalURL(shortURL)
+			value, err := DB.GetOriginalURL(context.Background(), shortURL)
 			require.NoError(t, err, "Error while get data from DB")
 			assert.Equal(t, tt.expected, value, "unexpected value")
 		})
@@ -65,9 +66,9 @@ func TestGetURLByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			shortURL, err := shortener.SetShortURL("", tt.value)
+			shortURL, err := shortener.SetShortURL(context.Background(), "", tt.value)
 			require.NoError(t, err, "Error while setting URL")
-			originalURL, err := DB.GetOriginalURL(shortURL)
+			originalURL, err := DB.GetOriginalURL(context.Background(), shortURL)
 			require.NoError(t, err, "Error while getting original URL")
 			assert.Equal(t, originalURL, tt.expected, "GetURLByID return wrong data")
 		})
@@ -101,7 +102,7 @@ func TestParseURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := shortener.isURLValid(tt.value)
+			err := shortener.IsURLValid(tt.value)
 			if err != nil {
 				assert.True(t, tt.wantError, "Unexpected error")
 				assert.ErrorIs(t, err, URLIsNotValidError{tt.value}, "Wrong error type")

@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -17,6 +20,7 @@ import (
 
 	"github.com/maxsnegir/url-shortener/cmd/config"
 	"github.com/maxsnegir/url-shortener/internal/auth"
+	"github.com/maxsnegir/url-shortener/internal/mocks"
 	"github.com/maxsnegir/url-shortener/internal/services"
 	"github.com/maxsnegir/url-shortener/internal/storage"
 )
@@ -244,7 +248,7 @@ func TestGetURLByIDHandler(t *testing.T) {
 			w := httptest.NewRecorder()
 			router := mux.NewRouter()
 			router.HandleFunc("/{urlID}/", handler.GetURLByIDHandler()).Methods(http.MethodGet)
-			shortURL, _ := shortener.SetShortURL(tt.userID, tt.url)
+			shortURL, _ := shortener.SetShortURL(context.Background(), tt.userID, tt.url)
 			request := httptest.NewRequest(tt.method, shortURL, nil)
 			router.Use(handler.CookieAuthenticationMiddleware)
 			router.ServeHTTP(w, request)
@@ -262,7 +266,7 @@ func TestGetURLByIDHandler(t *testing.T) {
 	}
 }
 
-func TestGetAllUserURLs(t *testing.T) {
+func TestGetUserURLs(t *testing.T) {
 	shortURLAddress := config.BaseURL
 	urlDB := storage.NewURLStorage(storage.NewMapStorage())
 	shortener := services.NewShortener(urlDB, shortURLAddress)
@@ -340,7 +344,7 @@ func TestGetAllUserURLs(t *testing.T) {
 				Value: authToken,
 			})
 			router := mux.NewRouter()
-			router.HandleFunc("/api/user/urls", handler.GetAllUserURLs()).Methods(http.MethodGet)
+			router.HandleFunc("/api/user/urls", handler.GetUserURLs()).Methods(http.MethodGet)
 			router.Use(handler.CookieAuthenticationMiddleware)
 			router.ServeHTTP(w, request)
 			response := w.Result()
@@ -349,6 +353,48 @@ func TestGetAllUserURLs(t *testing.T) {
 			require.NoError(t, json.NewDecoder(response.Body).Decode(&responseData))
 			require.Equal(t, len(tests), len(responseData))
 
+		})
+	}
+}
+
+func TestPing(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	s := mocks.NewMockShortenerStorage(ctrl)
+	shortener := services.NewShortener(s, config.BaseURL)
+	authorization, _ := auth.NewCookieAuthentication("secretKey")
+	handler := NewURLHandler(shortener, authorization, logrus.New())
+
+	tests := []struct {
+		name       string
+		statusCode int
+		err        error
+	}{
+		{
+			name:       "All ok",
+			statusCode: http.StatusOK,
+			err:        nil,
+		},
+		{
+			name:       "Want error",
+			statusCode: http.StatusInternalServerError,
+			err:        errors.New("some error"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s.EXPECT().Ping(gomock.Any()).Return(tt.err)
+
+			request := httptest.NewRequest(http.MethodGet, "/ping", nil)
+			router := mux.NewRouter()
+			router.HandleFunc("/ping", handler.Ping()).Methods(http.MethodGet)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, request)
+			response := w.Result()
+			defer response.Body.Close()
+			require.Equal(t, response.StatusCode, tt.statusCode, "wrong status code")
 		})
 	}
 }

@@ -13,6 +13,8 @@ type UserID string
 
 const UserIDKey UserID = "UserID"
 
+type Middleware func(next http.Handler) http.Handler
+
 func (h *URLHandler) CookieAuthenticationMiddleware(next http.Handler) http.Handler {
 
 	setTokenToCookie := func(w http.ResponseWriter, token string) {

@@ -21,16 +21,27 @@ type URLHandler struct {
 	authentication auth.CookieAuthentication
 }
 
+func (h *URLHandler) getUserToken(ctx context.Context) string {
+	userToken := ctx.Value(UserIDKey)
+	if userToken == nil {
+		return ""
+	}
+	return userToken.(string)
+}
+
 func (h *URLHandler) SetURLTextHandler() http.HandlerFunc {
+	const timeout = 3 * time.Second
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		userToken := r.Context().Value(UserIDKey).(string)
+		ctx, cancel := context.WithTimeout(r.Context(), timeout)
+		defer cancel()
+		userToken := h.getUserToken(r.Context())
 		url, err := io.ReadAll(r.Body)
 		if err != nil || len(url) == 0 {
 			h.TextResponse(w, http.StatusUnprocessableEntity, "URL in request body is missing")
 			return
 		}
-		shortURL, err := h.shortener.SetShortURL(userToken, string(url))
+		shortURL, err := h.shortener.SetShortURL(ctx, userToken, string(url))
 		if err != nil {
 			errMsg, statusCode := h.processSetURLError(err)
 			h.TextResponse(w, statusCode, errMsg)
@@ -40,7 +51,7 @@ func (h *URLHandler) SetURLTextHandler() http.HandlerFunc {
 }
 
 func (h *URLHandler) SetURLJSONHandler() http.HandlerFunc {
-
+	const timeout = 3 * time.Second
 	type RequestData struct {
 		URL string `json:"url"`
 	}
@@ -50,7 +61,10 @@ func (h *URLHandler) SetURLJSONHandler() http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		userToken := r.Context().Value(UserIDKey).(string)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		userToken := h.getUserToken(r.Context())
 		requestData := &RequestData{}
 		responseData := &ResponseData{}
 
@@ -61,7 +75,7 @@ func (h *URLHandler) SetURLJSONHandler() http.HandlerFunc {
 			h.JSONResponse(w, http.StatusBadRequest, responseData)
 			return
 		}
-		shortURL, err := h.shortener.SetShortURL(userToken, requestData.URL)
+		shortURL, err := h.shortener.SetShortURL(ctx, userToken, requestData.URL)
 		if err != nil {
 			errMsg, statusCode := h.processSetURLError(err)
 			responseData.ErrorMsg = errMsg
@@ -74,12 +88,16 @@ func (h *URLHandler) SetURLJSONHandler() http.HandlerFunc {
 }
 
 func (h *URLHandler) GetURLByIDHandler() http.HandlerFunc {
+	const timeout = 3 * time.Second
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), timeout)
+		defer cancel()
+
 		vars := mux.Vars(r)
 		urlID := vars["urlID"]
 		shortURL := fmt.Sprintf("%s/%s/", h.shortener.GetHostURL(), urlID)
-		originalURL, err := h.shortener.GetOriginalURLByShort(shortURL)
+		originalURL, err := h.shortener.GetOriginalURL(ctx, shortURL)
 		if err != nil {
 			switch err.(type) {
 			case services.OriginalURLNotFound:
@@ -95,10 +113,15 @@ func (h *URLHandler) GetURLByIDHandler() http.HandlerFunc {
 	}
 }
 
-func (h *URLHandler) GetAllUserURLs() http.HandlerFunc {
+func (h *URLHandler) GetUserURLs() http.HandlerFunc {
+	const timeout = 3 * time.Second
+
 	return func(w http.ResponseWriter, r *http.Request) {
-		userToken := r.Context().Value(UserIDKey).(string)
-		userURLs, err := h.shortener.GetAllUserURLs(userToken)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		userToken := h.getUserToken(r.Context())
+		userURLs, err := h.shortener.GetUserURLs(ctx, userToken)
 		if err != nil {
 			h.TextResponse(w, http.StatusInternalServerError, InternalServerError.Error())
 			return
@@ -112,16 +135,16 @@ func (h *URLHandler) GetAllUserURLs() http.HandlerFunc {
 }
 
 func (h *URLHandler) Ping() http.HandlerFunc {
+	const timeout = 3 * time.Second
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(r.Context(), timeout)
 		defer cancel()
 		if err := h.shortener.Ping(ctx); err != nil {
 			h.TextResponse(w, http.StatusInternalServerError, "")
 			return
 		}
 		h.TextResponse(w, http.StatusOK, "")
-		return
 	}
 }
 

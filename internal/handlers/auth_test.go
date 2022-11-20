@@ -70,3 +70,79 @@ func TestCookieAuthMiddleware(t *testing.T) {
 		})
 	}
 }
+
+// TestAuthTokenIsSame проверяем, что приходит нужная кука
+func TestAuthToken(t *testing.T) {
+	urlStorage := storage.NewURLStorage(storage.NewMapStorage())
+	shortener := services.NewShortener(urlStorage, config.BaseURL)
+	authorization, _ := auth.NewCookieAuthentication("secret")
+	handler := NewURLHandler(shortener, authorization, logrus.New())
+
+	tests := []struct {
+		name       string
+		handleFunc func() http.HandlerFunc
+		method     string
+		url        string
+		setCookie  bool
+	}{
+		{
+			name:       "POST: SetURLTextHandler",
+			handleFunc: handler.SetURLTextHandler,
+			method:     http.MethodPost,
+			url:        "/",
+			setCookie:  true,
+		},
+		{
+			name:       "GET: SetURLTextHandler",
+			handleFunc: handler.SetURLTextHandler,
+			method:     http.MethodGet,
+			url:        "/",
+			setCookie:  false,
+		},
+		{
+			name:       "Get: GetUserURLs ",
+			handleFunc: handler.GetUserURLs,
+			method:     http.MethodGet,
+			url:        "/api/user/urls",
+			setCookie:  false,
+		},
+		{
+			name:       "Un existing url and wrong http method",
+			handleFunc: handler.SetURLJSONHandler,
+			method:     http.MethodOptions,
+			url:        "/some-url",
+			setCookie:  true,
+		},
+	}
+
+	var authToken string
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			request := httptest.NewRequest(tt.method, tt.url, nil)
+			if tt.setCookie {
+				request.AddCookie(&http.Cookie{Name: auth.AuthorizationCookieName, Value: authToken})
+			}
+			router := mux.NewRouter()
+			router.HandleFunc("/", tt.handleFunc()).Methods(tt.method)
+			router.Use(handler.CookieAuthenticationMiddleware)
+			router.ServeHTTP(w, request)
+
+			response := w.Result()
+			defer response.Body.Close()
+
+			for _, cookie := range response.Cookies() {
+				if cookie.Name == auth.AuthorizationCookieName {
+					if authToken == "" {
+						authToken = cookie.Value
+					}
+					if tt.setCookie {
+						require.Equal(t, cookie.Value, authToken)
+					} else {
+						require.NotEqual(t, cookie.Value, authToken)
+					}
+				}
+			}
+		})
+	}
+}

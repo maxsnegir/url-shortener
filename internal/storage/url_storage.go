@@ -10,7 +10,7 @@ type URLStorage struct {
 	urlStorage     Storage
 }
 
-func (s *URLStorage) GetOriginalURL(shortURL string) (string, error) {
+func (s *URLStorage) GetOriginalURL(ctx context.Context, shortURL string) (string, error) {
 	encodedData, err := s.urlStorage.Get(shortURL)
 	if err != nil {
 		return "", nil
@@ -22,34 +22,64 @@ func (s *URLStorage) SetShortURL(urlData URLData) error {
 	return s.urlStorage.Set(urlData.ShortURL, []byte(urlData.OriginalURL))
 }
 
-func (s *URLStorage) GetUserURLs(userID string) ([]string, error) {
-	var userURLs []string
-	encodedURLs, err := s.userURLStorage.Get(userID)
+func (s *URLStorage) getUserShortURLs(userToken string) ([]string, error) {
+	var shortURLs []string
+
+	encodedURLs, err := s.userURLStorage.Get(userToken)
 	if err != nil {
-		return userURLs, nil
+		return shortURLs, nil
 	}
-	if err := json.Unmarshal(encodedURLs, &userURLs); err != nil {
-		return userURLs, err
+	err = json.Unmarshal(encodedURLs, &shortURLs)
+	return shortURLs, err
+}
+
+func (s *URLStorage) GetUserURLs(ctx context.Context, userToken string) ([]URLData, error) {
+	var userURLData []URLData
+
+	shortURLs, err := s.getUserShortURLs(userToken)
+	if err != nil {
+		return userURLData, err
 	}
-	return userURLs, nil
+
+	for _, shortURL := range shortURLs {
+		originalURL, err := s.GetOriginalURL(context.TODO(), shortURL) //TODO
+		if err != nil {
+			continue
+		}
+		userURLData = append(userURLData, URLData{
+			ShortURL:    shortURL,
+			OriginalURL: originalURL,
+		})
+	}
+	return userURLData, nil
 }
 
 func (s *URLStorage) SetUserURL(userID string, shortURL string) error {
-	userURLs, err := s.GetUserURLs(userID)
+	userShortURLs, err := s.getUserShortURLs(userID)
 	if err != nil {
 		return err
 	}
-	for _, url := range userURLs {
+	for _, url := range userShortURLs {
 		if url == shortURL {
 			return nil
 		}
 	}
-	userURLs = append(userURLs, shortURL)
-	encodedURLs, err := json.Marshal(userURLs)
+	userShortURLs = append(userShortURLs, shortURL)
+	encodedURLs, err := json.Marshal(userShortURLs)
 	if err != nil {
 		return err
 	}
 	return s.userURLStorage.Set(userID, encodedURLs)
+}
+
+func (s *URLStorage) SaveData(ctx context.Context, userID string, urlData URLData) error {
+	if err := s.SetShortURL(urlData); err != nil {
+		return err
+	}
+	if err := s.SetUserURL(userID, urlData.ShortURL); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *URLStorage) Ping(ctx context.Context) error {
