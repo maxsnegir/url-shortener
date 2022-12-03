@@ -2,11 +2,12 @@ package storage
 
 import (
 	"context"
-	"database/sql"
-
+	"errors"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 )
+
+var DuplicateErr = errors.New("DuplicateErr")
 
 type PostgresStorage struct {
 	db *sqlx.DB
@@ -25,25 +26,17 @@ func (ps *PostgresStorage) SaveData(ctx context.Context, userID string, urlData 
 		return err
 	}
 	defer tx.Rollback()
-	urlDataID, err := ps.getOrCreateURLData(ctx, urlData)
+	urlDataID, err := ps.createURLData(ctx, urlData)
 	if err != nil {
+		if ps.IsDuplicateError(err) {
+			return DuplicateErr
+		}
 		return err
 	}
 	if err := ps.getOrCreateUserURL(ctx, userID, urlDataID); err != nil {
 		return err
 	}
 	return tx.Commit()
-}
-
-func (ps *PostgresStorage) getOrCreateURLData(ctx context.Context, urlData URLData) (int, error) {
-	const selectQuery = `SELECT ud.url_data_id FROM url_data ud WHERE ud.short_url=$1;`
-	var urlDataID int
-	if err := ps.db.QueryRowContext(ctx, selectQuery, urlData.ShortURL).Scan(&urlDataID); err != nil {
-		if err == sql.ErrNoRows {
-			return ps.createURLData(ctx, urlData)
-		}
-	}
-	return urlDataID, nil
 }
 
 func (ps *PostgresStorage) createURLData(ctx context.Context, urlData URLData) (int, error) {
@@ -86,8 +79,11 @@ func (ps *PostgresStorage) SaveDataBatch(ctx context.Context, userID string, url
 	defer tx.Rollback()
 
 	for _, url := range urlData {
-		urlDataID, err := ps.getOrCreateURLData(ctx, url)
+		urlDataID, err := ps.createURLData(ctx, url)
 		if err != nil {
+			if ps.IsDuplicateError(err) {
+				return DuplicateErr
+			}
 			return err
 		}
 		if err := ps.getOrCreateUserURL(ctx, userID, urlDataID); err != nil {
@@ -109,6 +105,15 @@ func (ps *PostgresStorage) GetUserURLs(ctx context.Context, userID string) ([]UR
 	var userURLs []URLData
 	err := ps.db.SelectContext(ctx, &userURLs, query, userID)
 	return userURLs, err
+}
+
+func (ps *PostgresStorage) IsDuplicateError(err error) bool {
+	if pqErr, ok := err.(*pq.Error); ok {
+		if pqErr.Code == "23505" {
+			return true
+		}
+	}
+	return false
 }
 
 func (ps *PostgresStorage) SetUserURL(userID string, shortURL string) error {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
+	"github.com/maxsnegir/url-shortener/internal/storage"
 	"io"
 	"net/http"
 	"time"
@@ -177,6 +178,9 @@ func (h *URLHandler) Ping() http.HandlerFunc {
 func (h *URLHandler) processSetURLError(err error) (string, int) {
 	var errMsg string
 	var statusCode int
+	if errors.As(err, &storage.DuplicateErr) {
+		return "Duplicate Err", http.StatusConflict
+	}
 	switch err.(type) {
 	case services.URLIsNotValidError:
 		errMsg = err.Error()
