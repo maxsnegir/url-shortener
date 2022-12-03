@@ -82,6 +82,15 @@ func (s *URLStorage) SaveData(ctx context.Context, userID string, urlData URLDat
 	return nil
 }
 
+func (s *URLStorage) SaveDataBatch(ctx context.Context, userID string, urlData []URLData) (err error) {
+	for _, url := range urlData {
+		if err := s.SaveData(ctx, userID, url); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *URLStorage) Ping(ctx context.Context) error {
 	return nil
 }

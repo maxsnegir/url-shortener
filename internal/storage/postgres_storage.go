@@ -13,36 +13,10 @@ type PostgresStorage struct {
 }
 
 func (ps *PostgresStorage) GetOriginalURL(ctx context.Context, shortURL string) (string, error) {
+	const query = "SELECT original_url FROM url_data ud WHERE ud.short_url=$1;"
 	var originalURL string
-	err := ps.db.GetContext(ctx, &originalURL, "SELECT original_url FROM url_data ud WHERE ud.short_url=$1", shortURL)
+	err := ps.db.GetContext(ctx, &originalURL, query, shortURL)
 	return originalURL, err
-}
-
-func (ps *PostgresStorage) saveURLData(ctx context.Context, tx *sql.Tx, urlData URLData) (int, error) {
-	const query = "INSERT INTO url_data(short_url, original_url)  VALUES ($1, $2) RETURNING url_data_id;"
-	var urlDataID int
-	stmt, err := tx.PrepareContext(ctx, query)
-	if err != nil {
-		return urlDataID, err
-	}
-	defer stmt.Close()
-	if err := stmt.QueryRow(urlData.ShortURL, urlData.OriginalURL).Scan(&urlDataID); err != nil {
-		return urlDataID, err
-	}
-	return urlDataID, nil
-}
-
-func (ps *PostgresStorage) saveUserURL(ctx context.Context, tx *sql.Tx, userID string, urlDataID int) error {
-	const query = "INSERT INTO user_url VALUES ($1, $2);"
-	_, err := tx.ExecContext(ctx, query, userID, urlDataID)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (ps *PostgresStorage) SetShortURL(urlData URLData) error {
-	return nil
 }
 
 func (ps *PostgresStorage) SaveData(ctx context.Context, userID string, urlData URLData) (err error) {
@@ -51,12 +25,74 @@ func (ps *PostgresStorage) SaveData(ctx context.Context, userID string, urlData 
 		return err
 	}
 	defer tx.Rollback()
-	urlDataID, err := ps.saveURLData(ctx, tx, urlData)
+	urlDataID, err := ps.getOrCreateURLData(ctx, urlData)
 	if err != nil {
 		return err
 	}
-	if err := ps.saveUserURL(ctx, tx, userID, urlDataID); err != nil {
+	if err := ps.getOrCreateUserURL(ctx, userID, urlDataID); err != nil {
 		return err
+	}
+	return tx.Commit()
+}
+
+func (ps *PostgresStorage) getOrCreateURLData(ctx context.Context, urlData URLData) (int, error) {
+	const selectQuery = `SELECT ud.url_data_id FROM url_data ud WHERE ud.short_url=$1;`
+	var urlDataID int
+	if err := ps.db.QueryRowContext(ctx, selectQuery, urlData.ShortURL).Scan(&urlDataID); err != nil {
+		if err == sql.ErrNoRows {
+			return ps.createURLData(ctx, urlData)
+		}
+	}
+	return urlDataID, nil
+}
+
+func (ps *PostgresStorage) createURLData(ctx context.Context, urlData URLData) (int, error) {
+	const query = `
+		INSERT INTO url_data(short_url, original_url)  
+		VALUES (:short_url, :original_url) 
+		RETURNING url_data_id;`
+	var urlDataID int
+	stmt, err := ps.db.PrepareNamedContext(ctx, query)
+	if err != nil {
+		return urlDataID, err
+	}
+	err = stmt.Get(&urlDataID, urlData)
+	return urlDataID, err
+}
+
+func (ps *PostgresStorage) getOrCreateUserURL(ctx context.Context, userID string, urlDataID int) error {
+	const insertQuery = `INSERT INTO user_url VALUES ($1, $2);`
+	const selectQuery = `SELECT count(*) FROM user_url uu WHERE uu.user_token=$1 AND uu.url_data_id=$2`
+	var count int
+	if err := ps.db.GetContext(ctx, &count, selectQuery, userID, urlDataID); err != nil {
+		return err
+	}
+	if count != 0 {
+		return nil
+	}
+	_, err := ps.db.ExecContext(ctx, insertQuery, userID, urlDataID)
+	return err
+}
+
+func (ps *PostgresStorage) SetShortURL(urlData URLData) error {
+	return nil
+}
+
+func (ps *PostgresStorage) SaveDataBatch(ctx context.Context, userID string, urlData []URLData) (err error) {
+	tx, err := ps.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for _, url := range urlData {
+		urlDataID, err := ps.getOrCreateURLData(ctx, url)
+		if err != nil {
+			return err
+		}
+		if err := ps.getOrCreateUserURL(ctx, userID, urlDataID); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
 }
@@ -67,14 +103,12 @@ func (ps *PostgresStorage) GetUserURLs(ctx context.Context, userID string) ([]UR
 		FROM url_data ud 
 		WHERE  ud.url_data_id IN (
 		    SELECT uu.url_data_id
-		    FROM user_url uu 
+		    	FROM user_url uu 
 		    WHERE uu.user_token = $1
-		);
-`
+		);`
 	var userURLs []URLData
 	err := ps.db.SelectContext(ctx, &userURLs, query, userID)
 	return userURLs, err
-
 }
 
 func (ps *PostgresStorage) SetUserURL(userID string, shortURL string) error {
@@ -93,7 +127,7 @@ func (ps *PostgresStorage) Shutdown(ctx context.Context) error {
 func (ps *PostgresStorage) initPostgresStorage(ctx context.Context) {
 	const schema = `
 		CREATE TABLE IF NOT EXISTS url_data (
-		    url_data_id SERIAL PRIMARY KEY, 
+		    url_data_id SERIAL PRIMARY KEY,
 		    short_url VARCHAR(255) UNIQUE,
 		    original_url VARCHAR(255) NOT NULL
 		);
@@ -102,9 +136,10 @@ func (ps *PostgresStorage) initPostgresStorage(ctx context.Context) {
 		    url_data_id INTEGER NOT NULL,
 		    CONSTRAINT user_url_data FOREIGN KEY(url_data_id) REFERENCES url_data(url_data_id)
 		);
+		CREATE UNIQUE INDEX IF NOT EXISTS user_url_data ON user_url (user_token, url_data_id);
 		CREATE INDEX IF NOT EXISTS user_token ON user_url (user_token);
 	`
-	ps.db.MustExec(schema)
+	ps.db.MustExecContext(ctx, schema)
 }
 
 func NewPostgresStorage(ctx context.Context, dsn string) (ShortenerStorage, error) {

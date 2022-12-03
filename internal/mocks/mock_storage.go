@@ -93,6 +93,20 @@ func (mr *MockShortenerStorageMockRecorder) SaveData(arg0, arg1, arg2 interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveData", reflect.TypeOf((*MockShortenerStorage)(nil).SaveData), arg0, arg1, arg2)
 }
 
+// SaveDataBatch mocks base method.
+func (m *MockShortenerStorage) SaveDataBatch(arg0 context.Context, arg1 string, arg2 []storage.URLData) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveDataBatch", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveDataBatch indicates an expected call of SaveDataBatch.
+func (mr *MockShortenerStorageMockRecorder) SaveDataBatch(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveDataBatch", reflect.TypeOf((*MockShortenerStorage)(nil).SaveDataBatch), arg0, arg1, arg2)
+}
+
 // SetShortURL mocks base method.
 func (m *MockShortenerStorage) SetShortURL(arg0 storage.URLData) error {
 	m.ctrl.T.Helper()

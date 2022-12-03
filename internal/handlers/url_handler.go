@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
 	"io"
@@ -41,7 +42,7 @@ func (h *URLHandler) SetURLTextHandler() http.HandlerFunc {
 			h.TextResponse(w, http.StatusUnprocessableEntity, "URL in request body is missing")
 			return
 		}
-		shortURL, err := h.shortener.SetShortURL(ctx, userToken, string(url))
+		shortURL, err := h.shortener.SaveData(ctx, userToken, string(url))
 		if err != nil {
 			errMsg, statusCode := h.processSetURLError(err)
 			h.TextResponse(w, statusCode, errMsg)
@@ -68,14 +69,13 @@ func (h *URLHandler) SetURLJSONHandler() http.HandlerFunc {
 		requestData := &RequestData{}
 		responseData := &ResponseData{}
 
-		err := json.NewDecoder(r.Body).Decode(&requestData)
-		if err != nil || requestData.URL == "" {
+		if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil || requestData.URL == "" {
 			// ToDo Сделать позже через errors wrap/unwrap
 			responseData.ErrorMsg = "Wrong URL type or URL in body is missing"
 			h.JSONResponse(w, http.StatusBadRequest, responseData)
 			return
 		}
-		shortURL, err := h.shortener.SetShortURL(ctx, userToken, requestData.URL)
+		shortURL, err := h.shortener.SaveData(ctx, userToken, requestData.URL)
 		if err != nil {
 			errMsg, statusCode := h.processSetURLError(err)
 			responseData.ErrorMsg = errMsg
@@ -131,6 +131,32 @@ func (h *URLHandler) GetUserURLs() http.HandlerFunc {
 			return
 		}
 		h.JSONResponse(w, http.StatusOK, userURLs)
+	}
+}
+
+func (h *URLHandler) SaveDataBatch() http.HandlerFunc {
+	const timeout = 3 * time.Second
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		userToken := h.getUserToken(r.Context())
+		var requestData []services.URLDataBatchRequest
+
+		err := json.NewDecoder(r.Body).Decode(&requestData)
+		if err != nil {
+			h.JSONResponse(w, http.StatusBadRequest, errors.New("wrong request"))
+			return
+		}
+		responseData, err := h.shortener.SaveDataBatch(ctx, userToken, requestData)
+		if err != nil {
+			h.processSetURLError(err)
+			errMsg, statusCode := h.processSetURLError(err)
+			h.JSONResponse(w, statusCode, errMsg)
+			return
+		}
+		h.JSONResponse(w, http.StatusCreated, responseData)
 	}
 }
 

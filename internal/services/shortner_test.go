@@ -34,7 +34,7 @@ func TestSetURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			shortURL, err := shortener.SetShortURL(context.Background(), "", tt.value)
+			shortURL, err := shortener.SaveData(context.Background(), "", tt.value)
 			require.NoError(t, err, "Error while set URL")
 			value, err := DB.GetOriginalURL(context.Background(), shortURL)
 			require.NoError(t, err, "Error while get data from DB")
@@ -66,7 +66,7 @@ func TestGetURLByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			shortURL, err := shortener.SetShortURL(context.Background(), "", tt.value)
+			shortURL, err := shortener.SaveData(context.Background(), "", tt.value)
 			require.NoError(t, err, "Error while setting URL")
 			originalURL, err := DB.GetOriginalURL(context.Background(), shortURL)
 			require.NoError(t, err, "Error while getting original URL")
