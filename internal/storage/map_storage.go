@@ -1,25 +1,31 @@
 package storage
 
-// MapURLDataBase In-Memory хранилище
-type MapURLDataBase map[string]string
+import "context"
 
-func (db MapURLDataBase) Set(key string, value string) error {
+// MapStorage In-Memory хранилище
+type MapStorage map[string][]byte
+
+func (db MapStorage) Set(key string, value []byte) error {
 	db[key] = value
 	return nil
 }
 
-func (db MapURLDataBase) Get(key string) (string, error) {
+func (db MapStorage) Get(key string) ([]byte, error) {
 	value, ok := db[key]
 	if !ok {
-		return "", KeyError
+		return nil, KeyError
 	}
 	return value, nil
 }
 
-func (db MapURLDataBase) Shutdown() error {
+func (db MapStorage) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func NewMapURLDataBase() Storage {
-	return make(MapURLDataBase)
+func configureMapStorage() MapStorage {
+	return make(MapStorage)
+}
+
+func NewMapStorage() Storage {
+	return configureMapStorage()
 }

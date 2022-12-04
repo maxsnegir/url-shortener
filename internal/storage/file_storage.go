@@ -1,52 +1,46 @@
 package storage
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/maxsnegir/url-shortener/internal/utils"
 )
 
-type URLData struct {
-	ShortURL string `json:"short_url"`
-	FullURL  string `json:"full_url"`
+type FileData struct {
+	Key   string
+	Value []byte
 }
 
-// FileStorage сохраняет ссылки в файл и в память.
-// Является оберткой над MapURLDataBase, чтобы упростить поиск ссылок.
 type FileStorage struct {
 	FilePath   string
 	FileWriter *utils.FileWriter
 	FileReader *utils.FileReader
-	Storage    Storage // In memory storage
+	Storage    Storage // In-memory storage
 }
 
-func (s *FileStorage) Get(key string) (string, error) {
+func (s *FileStorage) Get(key string) ([]byte, error) {
 	return s.Storage.Get(key)
 }
 
-// Set Помещаем ссылки в хранилище.
-func (s *FileStorage) Set(key, value string) error {
-	// Проверяем, что ссылки нет в памяти, чтобы не записывать в файл повторяющиеся данные
-	if _, err := s.Storage.Get(key); err == nil {
+func (s *FileStorage) Set(key string, value []byte) error {
+	if err := s.Storage.Set(key, value); err != nil {
 		return nil
 	}
-	if err := s.Storage.Set(key, value); err != nil {
-		return err
+	fileData := &FileData{
+		Key:   key,
+		Value: value,
 	}
-	urlData := URLData{ShortURL: key, FullURL: value}
-	encodedData, err := json.Marshal(urlData)
+	encodedData, err := json.Marshal(fileData)
 	if err != nil {
 		return err
 	}
-
 	return s.FileWriter.Write(encodedData)
 }
 
-// loadURLFromFile Вызывается при инициализации хранилища.
-// Читает все ссылки из файла и загружает в In-Memory хранилище.
-func (s *FileStorage) loadURLFromFile() error {
+func (s *FileStorage) loadDumpFromFile() error {
 	for {
-		urlData := &URLData{}
+		fileData := &FileData{}
 		encodedData, err := s.FileReader.Read()
 		if err != nil {
 			return err
@@ -54,18 +48,16 @@ func (s *FileStorage) loadURLFromFile() error {
 		if encodedData == nil {
 			break
 		}
-		if err := json.Unmarshal(encodedData, &urlData); err != nil {
+		if err := json.Unmarshal(encodedData, &fileData); err != nil {
 			return err
 		}
-		if err := s.Storage.Set(urlData.ShortURL, urlData.FullURL); err != nil {
+		if err := s.Storage.Set(fileData.Key, fileData.Value); err != nil {
 			return nil
 		}
 	}
 	return nil
-
 }
-
-func (s *FileStorage) Shutdown() error {
+func (s *FileStorage) Shutdown(ctx context.Context) error {
 	if err := s.FileWriter.Close(); err != nil {
 		return err
 	}
@@ -73,10 +65,9 @@ func (s *FileStorage) Shutdown() error {
 		return err
 	}
 	return nil
-
 }
 
-func NewFileStorage(filePath string) (Storage, error) {
+func NewURLFileStorage(filePath string) (Storage, error) {
 	fileWriter, err := utils.NewFileWriter(filePath)
 	if err != nil {
 		return nil, err
@@ -89,10 +80,9 @@ func NewFileStorage(filePath string) (Storage, error) {
 		FilePath:   filePath,
 		FileWriter: fileWriter,
 		FileReader: fileReader,
-		Storage:    NewMapURLDataBase(),
+		Storage:    NewMapStorage(),
 	}
-
-	if err := fileStorage.loadURLFromFile(); err != nil {
+	if err := fileStorage.loadDumpFromFile(); err != nil {
 		return fileStorage, LoadingDumbDataError{err: err}
 	}
 	return fileStorage, nil
