@@ -18,22 +18,20 @@ type server struct {
 }
 
 func (s *server) Start() error {
-	s.beforeStart()
+	s.configureRouter()
 	s.logger.Infof("Server is starting on %s", s.config.Server.ServerAddress)
 	return http.ListenAndServe(s.config.Server.ServerAddress, s.router)
 }
 
-func (s *server) beforeStart() {
-	s.configureRouter()
-}
-
 func (s *server) configureRouter() {
+	// Routes
 	s.router.HandleFunc("/", s.urlHandler.SetURLTextHandler()).Methods(http.MethodPost)
 	s.router.HandleFunc("/api/shorten", s.urlHandler.SetURLJSONHandler()).Methods(http.MethodPost)
 	s.router.HandleFunc("/{urlID}/", s.urlHandler.GetURLByIDHandler()).Methods(http.MethodGet)
 	s.router.HandleFunc("/api/user/urls", s.urlHandler.GetUserURLs()).Methods(http.MethodGet)
 	s.router.HandleFunc("/ping", s.urlHandler.Ping()).Methods(http.MethodGet)
 	s.router.HandleFunc("/api/shorten/batch", s.urlHandler.SaveDataBatch()).Methods(http.MethodPost)
+	// Middlewares
 	s.router.Use(s.urlHandler.CookieAuthenticationMiddleware)
 	s.router.Use(s.urlHandler.LoggingMiddleware)
 	s.router.Use(s.urlHandler.GzipMiddleware)

@@ -110,3 +110,80 @@ func TestParseURL(t *testing.T) {
 		})
 	}
 }
+
+func TestGetAllUserURLs(t *testing.T) {
+	userToken := "someToken"
+	testURLs := map[string]string{
+		"http://github.com/":            "http://localhost:8080/hnTOWmuz/",
+		"http://gitlab.com":             "http://localhost:8080/PSynyReI/",
+		"https://bitbucket.org":         "http://localhost:8080/ji7Semk-/",
+		"https://www.mercurial-scm.org": "http://localhost:8080/jdR6WcSi/",
+	}
+
+	db := storage.NewURLStorage(storage.NewMapStorage())
+	shortener := NewShortener(db, config.BaseURL)
+	for shortURL := range testURLs {
+		_, err := shortener.SaveData(context.Background(), userToken, shortURL)
+		assert.NoError(t, err)
+	}
+
+	tests := []struct {
+		name         string
+		userToken    string
+		userURLCount int
+	}{
+		{
+			name:         "All ok",
+			userToken:    userToken,
+			userURLCount: len(testURLs),
+		},
+		{
+			name:         "Not existing user token",
+			userToken:    "There is not user with that auth token",
+			userURLCount: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			urlData, err := shortener.GetUserURLs(context.Background(), tt.userToken)
+			require.NoError(t, err, "error while get all user urls")
+			require.Equal(t, len(urlData), tt.userURLCount, "wrong url count")
+
+			for _, url := range urlData {
+				shortURL, ok := testURLs[url.OriginalURL]
+				require.True(t, ok, "not expected url")
+				require.Equal(t, shortURL, url.ShortURL)
+			}
+		})
+	}
+}
+
+func TestSaveDataBatch(t *testing.T) {
+	DB := storage.NewURLStorage(storage.NewMapStorage())
+	shortener := NewShortener(DB, config.BaseURL)
+	batchRequest := []URLDataBatchRequest{
+		{CorrelationID: "1", OriginalURL: "http://github.com/"},
+		{CorrelationID: "2", OriginalURL: "http://gitlab.com"},
+		{CorrelationID: "3", OriginalURL: "https://bitbucket.org"},
+		{CorrelationID: "4", OriginalURL: "https://www.mercurial-scm.org"},
+	}
+
+	t.Run("Run SaveDataBatch", func(t *testing.T) {
+		batchResponse, err := shortener.SaveDataBatch(context.Background(), "userToken", batchRequest)
+		require.NoError(t, err, "error while make batch save")
+		require.Equal(t, len(batchRequest), len(batchResponse))
+
+		for _, urlData := range batchResponse {
+			originalURL, err := shortener.GetOriginalURL(context.Background(), urlData.ShortURL)
+			require.NoError(t, err, "error while getting original url")
+
+			for _, batchReq := range batchRequest {
+				if batchReq.OriginalURL == originalURL {
+					require.Equal(t, batchReq.CorrelationID, urlData.CorrelationID, "CorrelationID in request and response didn't match")
+					break
+				}
+			}
+		}
+	})
+}

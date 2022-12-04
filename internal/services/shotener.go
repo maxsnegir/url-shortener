@@ -11,7 +11,7 @@ import (
 )
 
 type URLService interface {
-	SaveData(ctx context.Context, userID, url string) (string, error)
+	SaveData(ctx context.Context, userID, shortURL string) (string, error)
 	SaveDataBatch(ctx context.Context, userID string, originalURLs []URLDataBatchRequest) ([]URLDataBatchResponse, error)
 	GetOriginalURL(ctx context.Context, shortURLID string) (string, error)
 	GetUserURLs(ctx context.Context, userID string) ([]storage.URLData, error)
