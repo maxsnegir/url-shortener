@@ -19,10 +19,10 @@ type Storage interface {
 }
 
 type ShortenerStorage interface {
-	SaveData(ctx context.Context, userID string, urlData URLData) error
-	SaveDataBatch(ctx context.Context, userID string, urlData []URLData) error
+	SaveData(ctx context.Context, userToken string, urlData URLData) error
+	SaveDataBatch(ctx context.Context, userToken string, urlData []URLData) error
 	GetOriginalURL(ctx context.Context, shortURL string) (string, error)
-	GetUserURLs(ctx context.Context, userID string) ([]URLData, error)
+	GetUserURLs(ctx context.Context, userToken string) ([]URLData, error)
 	Shutdown(ctx context.Context) error
 	Ping(ctx context.Context) error
 }

@@ -17,7 +17,7 @@ func (ps *PostgresStorage) GetOriginalURL(ctx context.Context, shortURL string) 
 	return originalURL, err
 }
 
-func (ps *PostgresStorage) SaveData(ctx context.Context, userID string, urlData URLData) (err error) {
+func (ps *PostgresStorage) SaveData(ctx context.Context, userToken string, urlData URLData) (err error) {
 	tx, err := ps.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -30,7 +30,7 @@ func (ps *PostgresStorage) SaveData(ctx context.Context, userID string, urlData 
 		}
 		return err
 	}
-	if err := ps.CreateUserURL(ctx, userID, urlDataID); err != nil {
+	if err := ps.CreateUserURL(ctx, userToken, urlDataID); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -50,13 +50,13 @@ func (ps *PostgresStorage) CreateURLData(ctx context.Context, urlData URLData) (
 	return urlDataID, err
 }
 
-func (ps *PostgresStorage) CreateUserURL(ctx context.Context, userID string, urlDataID int) error {
+func (ps *PostgresStorage) CreateUserURL(ctx context.Context, userToken string, urlDataID int) error {
 	const query = `INSERT INTO user_url VALUES ($1, $2);`
-	_, err := ps.db.ExecContext(ctx, query, userID, urlDataID)
+	_, err := ps.db.ExecContext(ctx, query, userToken, urlDataID)
 	return err
 }
 
-func (ps *PostgresStorage) SaveDataBatch(ctx context.Context, userID string, urlData []URLData) (err error) {
+func (ps *PostgresStorage) SaveDataBatch(ctx context.Context, userToken string, urlData []URLData) (err error) {
 	tx, err := ps.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -71,14 +71,14 @@ func (ps *PostgresStorage) SaveDataBatch(ctx context.Context, userID string, url
 			}
 			return err
 		}
-		if err := ps.CreateUserURL(ctx, userID, urlDataID); err != nil {
+		if err := ps.CreateUserURL(ctx, userToken, urlDataID); err != nil {
 			return err
 		}
 	}
 	return tx.Commit()
 }
 
-func (ps *PostgresStorage) GetUserURLs(ctx context.Context, userID string) ([]URLData, error) {
+func (ps *PostgresStorage) GetUserURLs(ctx context.Context, userToken string) ([]URLData, error) {
 	const query = `
 		SELECT ud.short_url, ud.original_url 
 		FROM url_data ud 
@@ -88,7 +88,7 @@ func (ps *PostgresStorage) GetUserURLs(ctx context.Context, userID string) ([]UR
 		    WHERE uu.user_token = $1
 		);`
 	var userURLs []URLData
-	err := ps.db.SelectContext(ctx, &userURLs, query, userID)
+	err := ps.db.SelectContext(ctx, &userURLs, query, userToken)
 	return userURLs, err
 }
 

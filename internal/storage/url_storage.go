@@ -58,8 +58,8 @@ func (s *URLStorage) GetUserURLs(ctx context.Context, userToken string) ([]URLDa
 	return userURLData, nil
 }
 
-func (s *URLStorage) SetUserURL(userID string, shortURL string) error {
-	userShortURLs, err := s.getUserShortURLs(userID)
+func (s *URLStorage) SetUserURL(userToken string, shortURL string) error {
+	userShortURLs, err := s.getUserShortURLs(userToken)
 	if err != nil {
 		return err
 	}
@@ -73,22 +73,22 @@ func (s *URLStorage) SetUserURL(userID string, shortURL string) error {
 	if err != nil {
 		return err
 	}
-	return s.userURLStorage.Set(userID, encodedURLs)
+	return s.userURLStorage.Set(userToken, encodedURLs)
 }
 
-func (s *URLStorage) SaveData(ctx context.Context, userID string, urlData URLData) error {
+func (s *URLStorage) SaveData(ctx context.Context, userToken string, urlData URLData) error {
 	if err := s.SetShortURL(urlData); err != nil {
 		return err
 	}
-	if err := s.SetUserURL(userID, urlData.ShortURL); err != nil {
+	if err := s.SetUserURL(userToken, urlData.ShortURL); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *URLStorage) SaveDataBatch(ctx context.Context, userID string, urlData []URLData) (err error) {
+func (s *URLStorage) SaveDataBatch(ctx context.Context, userToken string, urlData []URLData) (err error) {
 	for _, url := range urlData {
-		if err := s.SaveData(ctx, userID, url); err != nil {
+		if err := s.SaveData(ctx, userToken, url); err != nil {
 			return err
 		}
 	}

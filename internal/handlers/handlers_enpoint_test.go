@@ -215,11 +215,11 @@ func TestGetURLByIDHandler(t *testing.T) {
 	}
 
 	tests := []struct {
-		name   string
-		want   want
-		url    string
-		userID string
-		method string
+		name      string
+		want      want
+		url       string
+		userToken string
+		method    string
 	}{
 		{
 			name: "All correct",
@@ -229,18 +229,18 @@ func TestGetURLByIDHandler(t *testing.T) {
 				contentType: "text/plain; charset=utf-8",
 				location:    "https://practicum.yandex.ru/",
 			},
-			url:    "https://practicum.yandex.ru/",
-			userID: "192.0.2.1",
-			method: http.MethodGet,
+			url:       "https://practicum.yandex.ru/",
+			userToken: "123",
+			method:    http.MethodGet,
 		},
 		{
 			name: "Wrong HTTP Method",
 			want: want{
 				code: http.StatusMethodNotAllowed,
 			},
-			url:    "https://github.com/",
-			userID: "192.0.2.1",
-			method: http.MethodPost,
+			url:       "https://github.com/",
+			userToken: "123",
+			method:    http.MethodPost,
 		},
 	}
 	for _, tt := range tests {
@@ -248,7 +248,7 @@ func TestGetURLByIDHandler(t *testing.T) {
 			w := httptest.NewRecorder()
 			router := mux.NewRouter()
 			router.HandleFunc("/{urlID}/", handler.GetURLByIDHandler()).Methods(http.MethodGet)
-			shortURL, err := shortener.SaveData(context.Background(), tt.userID, tt.url)
+			shortURL, err := shortener.SaveData(context.Background(), tt.userToken, tt.url)
 			require.NoError(t, err, "error while saving url")
 			request := httptest.NewRequest(tt.method, shortURL, nil)
 			router.Use(handler.CookieAuthenticationMiddleware)

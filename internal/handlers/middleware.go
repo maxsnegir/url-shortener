@@ -9,9 +9,9 @@ import (
 	"strings"
 )
 
-type UserID string
+type UserToken string
 
-const UserIDKey UserID = "UserID"
+const UserTokenKey UserToken = "UserToken"
 
 type Middleware func(next http.Handler) http.Handler
 
@@ -45,7 +45,7 @@ func (h *URLHandler) CookieAuthenticationMiddleware(next http.Handler) http.Hand
 			token, encodedToken = h.authentication.CreateToken()
 			setTokenToCookie(w, encodedToken)
 		}
-		ctx := context.WithValue(r.Context(), UserIDKey, token)
+		ctx := context.WithValue(r.Context(), UserTokenKey, token)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

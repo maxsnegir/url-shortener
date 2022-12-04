@@ -24,7 +24,7 @@ type URLHandler struct {
 }
 
 func (h *URLHandler) getUserToken(ctx context.Context) string {
-	userToken := ctx.Value(UserIDKey)
+	userToken := ctx.Value(UserTokenKey)
 	if userToken == nil {
 		return ""
 	}

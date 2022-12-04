@@ -11,10 +11,10 @@ import (
 )
 
 type URLService interface {
-	SaveData(ctx context.Context, userID, shortURL string) (string, error)
-	SaveDataBatch(ctx context.Context, userID string, originalURLs []URLDataBatchRequest) ([]URLDataBatchResponse, error)
+	SaveData(ctx context.Context, userToken, shortURL string) (string, error)
+	SaveDataBatch(ctx context.Context, userToken string, originalURLs []URLDataBatchRequest) ([]URLDataBatchResponse, error)
 	GetOriginalURL(ctx context.Context, shortURLID string) (string, error)
-	GetUserURLs(ctx context.Context, userID string) ([]storage.URLData, error)
+	GetUserURLs(ctx context.Context, userToken string) ([]storage.URLData, error)
 	GetHostURL() string
 	IsURLValid(url string) error
 	Ping(ctx context.Context) error
@@ -35,7 +35,7 @@ type URLDataBatchResponse struct {
 	ShortURL      string `json:"short_url"`
 }
 
-func (s *shortener) SaveData(ctx context.Context, userID string, url string) (string, error) {
+func (s *shortener) SaveData(ctx context.Context, userToken string, url string) (string, error) {
 	if err := s.IsURLValid(url); err != nil {
 		return "", err
 	}
@@ -45,13 +45,13 @@ func (s *shortener) SaveData(ctx context.Context, userID string, url string) (st
 		ShortURL:    fmt.Sprintf("%s/%s/", s.GetHostURL(), urlHash),
 		OriginalURL: url,
 	}
-	if err := s.storage.SaveData(ctx, userID, urlData); err != nil {
+	if err := s.storage.SaveData(ctx, userToken, urlData); err != nil {
 		return "", err
 	}
 	return urlData.ShortURL, nil
 }
 
-func (s *shortener) SaveDataBatch(ctx context.Context, userID string, originalURLs []URLDataBatchRequest) ([]URLDataBatchResponse, error) {
+func (s *shortener) SaveDataBatch(ctx context.Context, userToken string, originalURLs []URLDataBatchRequest) ([]URLDataBatchResponse, error) {
 	urlDataList := make([]storage.URLData, 0, len(originalURLs))
 	urlDataResponse := make([]URLDataBatchResponse, 0, len(originalURLs))
 
@@ -72,7 +72,7 @@ func (s *shortener) SaveDataBatch(ctx context.Context, userID string, originalUR
 			ShortURL:      urlData.ShortURL,
 		})
 	}
-	err := s.storage.SaveDataBatch(ctx, userID, urlDataList)
+	err := s.storage.SaveDataBatch(ctx, userToken, urlDataList)
 	return urlDataResponse, err
 }
 
@@ -103,8 +103,8 @@ func (s *shortener) GetOriginalURL(ctx context.Context, shortURL string) (string
 	return originalURL, nil
 }
 
-func (s *shortener) GetUserURLs(ctx context.Context, userID string) ([]storage.URLData, error) {
-	return s.storage.GetUserURLs(ctx, userID)
+func (s *shortener) GetUserURLs(ctx context.Context, userToken string) ([]storage.URLData, error) {
+	return s.storage.GetUserURLs(ctx, userToken)
 }
 
 func (s *shortener) Ping(ctx context.Context) error {
