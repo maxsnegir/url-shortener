@@ -71,7 +71,7 @@ func TestCookieAuthMiddleware(t *testing.T) {
 	}
 }
 
-// TestAuthTokenIsSame проверяем, что приходит нужная кука
+// TestAuthToken проверяем, что приходит нужная кука
 func TestAuthToken(t *testing.T) {
 	urlStorage := storage.NewURLStorage(storage.NewMapStorage())
 	shortener := services.NewShortener(urlStorage, config.BaseURL)
@@ -100,14 +100,14 @@ func TestAuthToken(t *testing.T) {
 			setCookie:  false,
 		},
 		{
-			name:       "Get: GetUserURLs ",
+			name:       "GET: GetUserURLs ",
 			handleFunc: handler.GetUserURLs,
 			method:     http.MethodGet,
 			url:        "/api/user/urls",
 			setCookie:  false,
 		},
 		{
-			name:       "Un existing url and wrong http method",
+			name:       "Not existing url and wrong http method",
 			handleFunc: handler.SetURLJSONHandler,
 			method:     http.MethodOptions,
 			url:        "/some-url",
