@@ -23,8 +23,6 @@ type ShortenerStorage interface {
 	SaveDataBatch(ctx context.Context, userID string, urlData []URLData) error
 	GetOriginalURL(ctx context.Context, shortURL string) (string, error)
 	GetUserURLs(ctx context.Context, userID string) ([]URLData, error)
-	SetShortURL(urlData URLData) error
-	SetUserURL(userID string, shortURL string) error
 	Shutdown(ctx context.Context) error
 	Ping(ctx context.Context) error
 }
@@ -44,5 +42,4 @@ func GetURLStorage(cfg config.Config) (ShortenerStorage, error) {
 		return nil, err
 	}
 	return NewURLStorage(fileStorage), nil
-
 }

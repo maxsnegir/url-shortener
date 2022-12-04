@@ -19,6 +19,10 @@ func (s *URLStorage) GetOriginalURL(ctx context.Context, shortURL string) (strin
 }
 
 func (s *URLStorage) SetShortURL(urlData URLData) error {
+	if _, err := s.urlStorage.Get(urlData.ShortURL); err == nil {
+		// Имитация ошибки при существующей ссылки в базе
+		return NewDuplicateError(urlData.ShortURL)
+	}
 	return s.urlStorage.Set(urlData.ShortURL, []byte(urlData.OriginalURL))
 }
 

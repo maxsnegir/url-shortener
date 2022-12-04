@@ -2,10 +2,8 @@ package storage
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
 )
 
 type PostgresStorage struct {
@@ -25,28 +23,20 @@ func (ps *PostgresStorage) SaveData(ctx context.Context, userID string, urlData 
 		return err
 	}
 	defer tx.Rollback()
-	urlDataID, err := ps.getOrCreateURLData(ctx, urlData)
+	urlDataID, err := ps.CreateURLData(ctx, urlData)
 	if err != nil {
+		if isDuplicateErr(err) {
+			return NewDuplicateError(urlData.ShortURL)
+		}
 		return err
 	}
-	if err := ps.getOrCreateUserURL(ctx, userID, urlDataID); err != nil {
+	if err := ps.CreateUserURL(ctx, userID, urlDataID); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
-func (ps *PostgresStorage) getOrCreateURLData(ctx context.Context, urlData URLData) (int, error) {
-	const selectQuery = `SELECT ud.url_data_id FROM url_data ud WHERE ud.short_url=$1;`
-	var urlDataID int
-	if err := ps.db.QueryRowContext(ctx, selectQuery, urlData.ShortURL).Scan(&urlDataID); err != nil {
-		if err == sql.ErrNoRows {
-			return ps.createURLData(ctx, urlData)
-		}
-	}
-	return urlDataID, nil
-}
-
-func (ps *PostgresStorage) createURLData(ctx context.Context, urlData URLData) (int, error) {
+func (ps *PostgresStorage) CreateURLData(ctx context.Context, urlData URLData) (int, error) {
 	const query = `
 		INSERT INTO url_data(short_url, original_url)  
 		VALUES (:short_url, :original_url) 
@@ -60,22 +50,10 @@ func (ps *PostgresStorage) createURLData(ctx context.Context, urlData URLData) (
 	return urlDataID, err
 }
 
-func (ps *PostgresStorage) getOrCreateUserURL(ctx context.Context, userID string, urlDataID int) error {
-	const insertQuery = `INSERT INTO user_url VALUES ($1, $2);`
-	const selectQuery = `SELECT count(*) FROM user_url uu WHERE uu.user_token=$1 AND uu.url_data_id=$2`
-	var count int
-	if err := ps.db.GetContext(ctx, &count, selectQuery, userID, urlDataID); err != nil {
-		return err
-	}
-	if count != 0 {
-		return nil
-	}
-	_, err := ps.db.ExecContext(ctx, insertQuery, userID, urlDataID)
+func (ps *PostgresStorage) CreateUserURL(ctx context.Context, userID string, urlDataID int) error {
+	const query = `INSERT INTO user_url VALUES ($1, $2);`
+	_, err := ps.db.ExecContext(ctx, query, userID, urlDataID)
 	return err
-}
-
-func (ps *PostgresStorage) SetShortURL(urlData URLData) error {
-	return nil
 }
 
 func (ps *PostgresStorage) SaveDataBatch(ctx context.Context, userID string, urlData []URLData) (err error) {
@@ -86,11 +64,14 @@ func (ps *PostgresStorage) SaveDataBatch(ctx context.Context, userID string, url
 	defer tx.Rollback()
 
 	for _, url := range urlData {
-		urlDataID, err := ps.getOrCreateURLData(ctx, url)
+		urlDataID, err := ps.CreateURLData(ctx, url)
 		if err != nil {
+			if isDuplicateErr(err) {
+				return NewDuplicateError(url.ShortURL)
+			}
 			return err
 		}
-		if err := ps.getOrCreateUserURL(ctx, userID, urlDataID); err != nil {
+		if err := ps.CreateUserURL(ctx, userID, urlDataID); err != nil {
 			return err
 		}
 	}
@@ -109,11 +90,6 @@ func (ps *PostgresStorage) GetUserURLs(ctx context.Context, userID string) ([]UR
 	var userURLs []URLData
 	err := ps.db.SelectContext(ctx, &userURLs, query, userID)
 	return userURLs, err
-}
-
-func (ps *PostgresStorage) SetUserURL(userID string, shortURL string) error {
-	//TODO implement me
-	panic("implement me")
 }
 
 func (ps *PostgresStorage) Ping(ctx context.Context) error {

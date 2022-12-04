@@ -238,7 +238,7 @@ func TestGetURLByIDHandler(t *testing.T) {
 			want: want{
 				code: http.StatusMethodNotAllowed,
 			},
-			url:    "https://practicum.yandex.ru/",
+			url:    "https://github.com/",
 			userID: "192.0.2.1",
 			method: http.MethodPost,
 		},
@@ -396,6 +396,46 @@ func TestPing(t *testing.T) {
 			response := w.Result()
 			defer response.Body.Close()
 			require.Equal(t, response.StatusCode, tt.statusCode, "wrong status code")
+		})
+	}
+}
+
+func TestDuplicateError(t *testing.T) {
+	tests := []struct {
+		name         string
+		originalURL  string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			name:         "First save no err",
+			originalURL:  "https://github.com",
+			expectedCode: http.StatusCreated,
+			expectedBody: "http://localhost:8080/hLfkSqVN/",
+		},
+		{
+			name:         "Second save conflict err",
+			originalURL:  "https://github.com",
+			expectedCode: http.StatusConflict,
+			expectedBody: "http://localhost:8080/hLfkSqVN/",
+		},
+	}
+	shortener := services.NewShortener(storage.NewURLStorage(storage.NewMapStorage()), config.BaseURL)
+	authorization, _ := auth.NewCookieAuthentication("secretKey")
+	handler := NewURLHandler(shortener, authorization, logrus.New())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(tt.originalURL))
+			router := mux.NewRouter()
+			router.HandleFunc("/", handler.SetURLTextHandler()).Methods(http.MethodPost)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, request)
+			response := w.Result()
+			defer response.Body.Close()
+			require.Equal(t, tt.expectedCode, response.StatusCode, "wrong status code")
+			resBody, err := io.ReadAll(response.Body)
+			require.NoError(t, err, "error while reading response body")
+			require.Equal(t, tt.expectedBody, string(resBody), "wrong response body")
 		})
 	}
 }
