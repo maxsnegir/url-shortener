@@ -35,11 +35,25 @@ func (m *MockShortenerStorage) EXPECT() *MockShortenerStorageMockRecorder {
 	return m.recorder
 }
 
+// DeleteURLs mocks base method.
+func (m *MockShortenerStorage) DeleteURLs(arg0 context.Context, arg1 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteURLs", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteURLs indicates an expected call of DeleteURLs.
+func (mr *MockShortenerStorageMockRecorder) DeleteURLs(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteURLs", reflect.TypeOf((*MockShortenerStorage)(nil).DeleteURLs), arg0, arg1)
+}
+
 // GetOriginalURL mocks base method.
-func (m *MockShortenerStorage) GetOriginalURL(arg0 context.Context, arg1 string) (string, error) {
+func (m *MockShortenerStorage) GetOriginalURL(arg0 context.Context, arg1 string) (storage.URLData, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetOriginalURL", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(storage.URLData)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -105,34 +119,6 @@ func (m *MockShortenerStorage) SaveDataBatch(arg0 context.Context, arg1 string, 
 func (mr *MockShortenerStorageMockRecorder) SaveDataBatch(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveDataBatch", reflect.TypeOf((*MockShortenerStorage)(nil).SaveDataBatch), arg0, arg1, arg2)
-}
-
-// SetShortURL mocks base method.
-func (m *MockShortenerStorage) SetShortURL(arg0 storage.URLData) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetShortURL", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetShortURL indicates an expected call of SetShortURL.
-func (mr *MockShortenerStorageMockRecorder) SetShortURL(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetShortURL", reflect.TypeOf((*MockShortenerStorage)(nil).SetShortURL), arg0)
-}
-
-// SetUserURL mocks base method.
-func (m *MockShortenerStorage) SetUserURL(arg0, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetUserURL", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetUserURL indicates an expected call of SetUserURL.
-func (mr *MockShortenerStorageMockRecorder) SetUserURL(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUserURL", reflect.TypeOf((*MockShortenerStorage)(nil).SetUserURL), arg0, arg1)
 }
 
 // Shutdown mocks base method.

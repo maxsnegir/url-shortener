@@ -29,6 +29,7 @@ func (s *server) configureRouter() {
 	s.router.HandleFunc("/api/shorten", s.urlHandler.SetURLJSONHandler()).Methods(http.MethodPost)
 	s.router.HandleFunc("/{urlID}/", s.urlHandler.GetURLByIDHandler()).Methods(http.MethodGet)
 	s.router.HandleFunc("/api/user/urls", s.urlHandler.GetUserURLs()).Methods(http.MethodGet)
+	s.router.HandleFunc("/api/user/urls", s.urlHandler.DeleteURLS()).Methods(http.MethodDelete)
 	s.router.HandleFunc("/ping", s.urlHandler.Ping()).Methods(http.MethodGet)
 	s.router.HandleFunc("/api/shorten/batch", s.urlHandler.SaveDataBatch()).Methods(http.MethodPost)
 	// Middlewares

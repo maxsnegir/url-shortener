@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/maxsnegir/url-shortener/cmd/config"
 	"github.com/maxsnegir/url-shortener/internal/auth"
@@ -45,7 +46,12 @@ func main() {
 	// Block until we receive our signal.
 	<-c
 	logger.Infof("shutting down by signal")
-	if err = urlStorage.Shutdown(context.Background()); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err = shortener.Shutdown(ctx); err != nil {
+		logger.Error(err)
+	}
+	if err = urlStorage.Shutdown(ctx); err != nil {
 		logger.Error(err)
 	}
 	os.Exit(0)

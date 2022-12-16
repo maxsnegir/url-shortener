@@ -3,30 +3,46 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"golang.org/x/sync/errgroup"
 )
 
-type URLStorage struct {
+// MemoryURLStorage обертка над MapStorage/FileStorage.
+// Используется для избежания дублирования кода, тк и то и другое хранилище имеют общее поведение сохранения данных,
+// но формат и структура хранения данных отличается
+type MemoryURLStorage struct {
 	userURLStorage Storage
 	urlStorage     Storage
 }
 
-func (s *URLStorage) GetOriginalURL(ctx context.Context, shortURL string) (string, error) {
+func (s *MemoryURLStorage) GetOriginalURL(ctx context.Context, shortURL string) (URLData, error) {
+	urlData := URLData{ShortURL: shortURL}
 	encodedData, err := s.urlStorage.Get(shortURL)
 	if err != nil {
-		return "", nil
+		return urlData, nil
 	}
-	return string(encodedData), nil
+	if err := json.Unmarshal(encodedData, &urlData); err != nil {
+		return urlData, err
+	}
+	return urlData, nil
 }
 
-func (s *URLStorage) SetShortURL(urlData URLData) error {
+func (s *MemoryURLStorage) SetShortURL(urlData URLData) error {
 	if _, err := s.urlStorage.Get(urlData.ShortURL); err == nil {
 		// Имитация ошибки при существующей ссылки в базе
 		return NewDuplicateError(urlData.ShortURL)
 	}
-	return s.urlStorage.Set(urlData.ShortURL, []byte(urlData.OriginalURL))
+	return s.SaveShortURL(urlData)
 }
 
-func (s *URLStorage) getUserShortURLs(userToken string) ([]string, error) {
+func (s *MemoryURLStorage) SaveShortURL(urlData URLData) error {
+	b, err := json.Marshal(urlData)
+	if err != nil {
+		return err
+	}
+	return s.urlStorage.Set(urlData.ShortURL, b)
+}
+
+func (s *MemoryURLStorage) getUserShortURLs(userToken string) ([]string, error) {
 	var shortURLs []string
 
 	encodedURLs, err := s.userURLStorage.Get(userToken)
@@ -37,7 +53,7 @@ func (s *URLStorage) getUserShortURLs(userToken string) ([]string, error) {
 	return shortURLs, err
 }
 
-func (s *URLStorage) GetUserURLs(ctx context.Context, userToken string) ([]URLData, error) {
+func (s *MemoryURLStorage) GetUserURLs(ctx context.Context, userToken string) ([]URLData, error) {
 	var userURLData []URLData
 
 	shortURLs, err := s.getUserShortURLs(userToken)
@@ -46,19 +62,16 @@ func (s *URLStorage) GetUserURLs(ctx context.Context, userToken string) ([]URLDa
 	}
 
 	for _, shortURL := range shortURLs {
-		originalURL, err := s.GetOriginalURL(context.TODO(), shortURL) //TODO
+		urlData, err := s.GetOriginalURL(context.TODO(), shortURL) //TODO
 		if err != nil {
 			continue
 		}
-		userURLData = append(userURLData, URLData{
-			ShortURL:    shortURL,
-			OriginalURL: originalURL,
-		})
+		userURLData = append(userURLData, urlData)
 	}
 	return userURLData, nil
 }
 
-func (s *URLStorage) SetUserURL(userToken string, shortURL string) error {
+func (s *MemoryURLStorage) SetUserURL(userToken string, shortURL string) error {
 	userShortURLs, err := s.getUserShortURLs(userToken)
 	if err != nil {
 		return err
@@ -76,7 +89,7 @@ func (s *URLStorage) SetUserURL(userToken string, shortURL string) error {
 	return s.userURLStorage.Set(userToken, encodedURLs)
 }
 
-func (s *URLStorage) SaveData(ctx context.Context, userToken string, urlData URLData) error {
+func (s *MemoryURLStorage) SaveData(ctx context.Context, userToken string, urlData URLData) error {
 	if err := s.SetShortURL(urlData); err != nil {
 		return err
 	}
@@ -86,7 +99,7 @@ func (s *URLStorage) SaveData(ctx context.Context, userToken string, urlData URL
 	return nil
 }
 
-func (s *URLStorage) SaveDataBatch(ctx context.Context, userToken string, urlData []URLData) (err error) {
+func (s *MemoryURLStorage) SaveDataBatch(ctx context.Context, userToken string, urlData []URLData) (err error) {
 	for _, url := range urlData {
 		if err := s.SaveData(ctx, userToken, url); err != nil {
 			return err
@@ -95,19 +108,38 @@ func (s *URLStorage) SaveDataBatch(ctx context.Context, userToken string, urlDat
 	return nil
 }
 
-func (s *URLStorage) Ping(ctx context.Context) error {
+func (s *MemoryURLStorage) Ping(ctx context.Context) error {
 	return nil
 }
 
-func (s *URLStorage) Shutdown(ctx context.Context) error {
+func (s *MemoryURLStorage) Shutdown(ctx context.Context) error {
 	if err := s.urlStorage.Shutdown(ctx); err != nil {
 		return err
 	}
 	return s.userURLStorage.Shutdown(ctx)
 }
 
-func NewURLStorage(urlStorage Storage) *URLStorage {
-	return &URLStorage{
+func (s *MemoryURLStorage) DeleteURLs(ctx context.Context, urlsToDelete []string) error {
+	g, ctx := errgroup.WithContext(context.Background())
+	for _, shortURL := range urlsToDelete {
+		shortURL := shortURL
+		g.Go(func() error {
+			urlData, err := s.GetOriginalURL(ctx, shortURL)
+			if err != nil {
+				return err
+			}
+			urlData.Deleted = true
+			if err := s.SaveShortURL(urlData); err != nil {
+				return err
+			}
+			return nil
+		})
+	}
+	return g.Wait()
+}
+
+func NewMemoryURLStorage(urlStorage Storage) *MemoryURLStorage {
+	return &MemoryURLStorage{
 		urlStorage:     urlStorage,
 		userURLStorage: NewMapStorage(), // InMemoryStorage по-дефолту
 	}

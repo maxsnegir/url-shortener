@@ -19,7 +19,7 @@ import (
 
 type URLHandler struct {
 	BaseHandler
-	shortener      services.URLService
+	shortener      services.ShortenerService
 	authentication auth.CookieAuthentication
 }
 
@@ -47,6 +47,7 @@ func (h *URLHandler) SetURLTextHandler() http.HandlerFunc {
 		if err != nil {
 			errMsg, statusCode := h.processSetURLError(err)
 			h.TextResponse(w, statusCode, errMsg)
+			return
 		}
 		h.TextResponse(w, http.StatusCreated, shortURL)
 	}
@@ -98,7 +99,7 @@ func (h *URLHandler) GetURLByIDHandler() http.HandlerFunc {
 		vars := mux.Vars(r)
 		urlID := vars["urlID"]
 		shortURL := fmt.Sprintf("%s/%s/", h.shortener.GetHostURL(), urlID)
-		originalURL, err := h.shortener.GetOriginalURL(ctx, shortURL)
+		urlData, err := h.shortener.GetOriginalURL(ctx, shortURL)
 		if err != nil {
 			switch err.(type) {
 			case services.OriginalURLNotFound:
@@ -109,7 +110,11 @@ func (h *URLHandler) GetURLByIDHandler() http.HandlerFunc {
 			}
 			return
 		}
-		w.Header().Add("Location", originalURL)
+		if urlData.Deleted {
+			h.TextResponse(w, http.StatusGone, "")
+			return
+		}
+		w.Header().Add("Location", urlData.OriginalURL)
 		h.TextResponse(w, http.StatusTemporaryRedirect, "")
 	}
 }
@@ -120,7 +125,6 @@ func (h *URLHandler) GetUserURLs() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
-
 		userToken := h.getUserToken(r.Context())
 		userURLs, err := h.shortener.GetUserURLs(ctx, userToken)
 		if err != nil {
@@ -196,7 +200,20 @@ func (h *URLHandler) processSetURLError(err error) (string, int) {
 	return errMsg, statusCode
 }
 
-func NewURLHandler(shortener services.URLService, auth auth.CookieAuthentication, logger *logrus.Logger) URLHandler {
+func (h *URLHandler) DeleteURLS() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var urlIDsToDel []string
+
+		if err := json.NewDecoder(r.Body).Decode(&urlIDsToDel); err != nil {
+			h.JSONResponse(w, http.StatusBadRequest, nil)
+			return
+		}
+
+		go h.shortener.DeleteURLs(urlIDsToDel)
+		h.JSONResponse(w, http.StatusAccepted, nil)
+	}
+}
+func NewURLHandler(shortener services.ShortenerService, auth auth.CookieAuthentication, logger *logrus.Logger) URLHandler {
 	return URLHandler{
 		BaseHandler:    BaseHandler{logger: logger},
 		shortener:      shortener,

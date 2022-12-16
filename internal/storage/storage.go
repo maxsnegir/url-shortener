@@ -10,6 +10,7 @@ type URLData struct {
 	URLDataID   int    `json:"-" db:"url_data_id"`
 	ShortURL    string `json:"short_url" db:"short_url"`
 	OriginalURL string `json:"original_url" db:"original_url"`
+	Deleted     bool   `json:"deleted" db:"deleted"`
 }
 
 type Storage interface {
@@ -21,10 +22,11 @@ type Storage interface {
 type ShortenerStorage interface {
 	SaveData(ctx context.Context, userToken string, urlData URLData) error
 	SaveDataBatch(ctx context.Context, userToken string, urlData []URLData) error
-	GetOriginalURL(ctx context.Context, shortURL string) (string, error)
+	GetOriginalURL(ctx context.Context, shortURL string) (URLData, error)
 	GetUserURLs(ctx context.Context, userToken string) ([]URLData, error)
 	Shutdown(ctx context.Context) error
 	Ping(ctx context.Context) error
+	DeleteURLs(ctx context.Context, urlsToDelete []string) error
 }
 
 func GetURLStorage(cfg config.Config) (ShortenerStorage, error) {
@@ -34,12 +36,12 @@ func GetURLStorage(cfg config.Config) (ShortenerStorage, error) {
 	}
 	//MapStorage
 	if cfg.Storage.FileStoragePath == "" {
-		return NewURLStorage(NewMapStorage()), nil
+		return NewMemoryURLStorage(NewMapStorage()), nil
 	}
 	//FileStorage
 	fileStorage, err := NewURLFileStorage(cfg.Storage.FileStoragePath)
 	if err != nil {
 		return nil, err
 	}
-	return NewURLStorage(fileStorage), nil
+	return NewMemoryURLStorage(fileStorage), nil
 }

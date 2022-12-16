@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
@@ -27,7 +28,7 @@ import (
 
 func TestSetURLTextHandler(t *testing.T) {
 	shortURLAddress := config.BaseURL
-	urlDB := storage.NewURLStorage(storage.NewMapStorage())
+	urlDB := storage.NewMemoryURLStorage(storage.NewMapStorage())
 	shortener := services.NewShortener(urlDB, shortURLAddress)
 	authorization, _ := auth.NewCookieAuthentication("secretKey")
 	handler := NewURLHandler(shortener, authorization, logrus.New())
@@ -108,7 +109,7 @@ func TestSetURLTextHandler(t *testing.T) {
 
 func TestSetURLJSONHandler(t *testing.T) {
 	shortURLAddress := config.BaseURL
-	urlDB := storage.NewURLStorage(storage.NewMapStorage())
+	urlDB := storage.NewMemoryURLStorage(storage.NewMapStorage())
 	shortener := services.NewShortener(urlDB, shortURLAddress)
 	authorization, _ := auth.NewCookieAuthentication("secretKey")
 	handler := NewURLHandler(shortener, authorization, logrus.New())
@@ -203,7 +204,7 @@ func TestSetURLJSONHandler(t *testing.T) {
 
 func TestGetURLByIDHandler(t *testing.T) {
 	shortURLAddress := config.BaseURL
-	urlDB := storage.NewURLStorage(storage.NewMapStorage())
+	urlDB := storage.NewMemoryURLStorage(storage.NewMapStorage())
 	shortener := services.NewShortener(urlDB, shortURLAddress)
 	authorization, _ := auth.NewCookieAuthentication("secretKey")
 	handler := NewURLHandler(shortener, authorization, logrus.New())
@@ -269,7 +270,7 @@ func TestGetURLByIDHandler(t *testing.T) {
 
 func TestGetUserURLs(t *testing.T) {
 	shortURLAddress := config.BaseURL
-	urlDB := storage.NewURLStorage(storage.NewMapStorage())
+	urlDB := storage.NewMemoryURLStorage(storage.NewMapStorage())
 	shortener := services.NewShortener(urlDB, shortURLAddress)
 	authorization, _ := auth.NewCookieAuthentication("secretKey")
 	handler := NewURLHandler(shortener, authorization, logrus.New())
@@ -420,7 +421,7 @@ func TestDuplicateError(t *testing.T) {
 			expectedBody: "http://localhost:8080/hLfkSqVN/",
 		},
 	}
-	shortener := services.NewShortener(storage.NewURLStorage(storage.NewMapStorage()), config.BaseURL)
+	shortener := services.NewShortener(storage.NewMemoryURLStorage(storage.NewMapStorage()), config.BaseURL)
 	authorization, _ := auth.NewCookieAuthentication("secretKey")
 	handler := NewURLHandler(shortener, authorization, logrus.New())
 	for _, tt := range tests {
@@ -438,4 +439,73 @@ func TestDuplicateError(t *testing.T) {
 			require.Equal(t, tt.expectedBody, string(resBody), "wrong response body")
 		})
 	}
+}
+
+func TestDeleteURLs(t *testing.T) {
+	shortener := services.NewShortener(storage.NewMemoryURLStorage(storage.NewMapStorage()), config.BaseURL)
+	authorization, _ := auth.NewCookieAuthentication("secretKey")
+	handler := NewURLHandler(shortener, authorization, logrus.New())
+
+	testURLs := map[string]string{
+		"http://github.com/":            "",
+		"http://gitlab.com":             "",
+		"https://bitbucket.org":         "",
+		"https://www.mercurial-scm.org": "",
+	}
+
+	body := make([]string, 0, len(testURLs))
+	t.Run("create short urls", func(t *testing.T) {
+		for fullURL := range testURLs {
+			shortURL, err := shortener.SaveData(context.Background(), "someToken", fullURL)
+			require.NoError(t, err, "error while create short url")
+			testURLs[fullURL] = shortURL
+			body = append(body, shortener.GetURLIdFromShortURL(shortURL))
+		}
+	})
+
+	t.Run("delete urls", func(t *testing.T) {
+		b, err := json.Marshal(body)
+		require.NoError(t, err, "error while encoding request body")
+		request := httptest.NewRequest(http.MethodDelete, "/api/user/urls", bytes.NewBuffer(b))
+		router := mux.NewRouter()
+		router.HandleFunc("/api/user/urls", handler.DeleteURLS()).Methods(http.MethodDelete)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, request)
+		response := w.Result()
+		defer response.Body.Close()
+		require.Equal(t, http.StatusAccepted, response.StatusCode, "wrong status code")
+	})
+
+	t.Run("check url is deleted", func(t *testing.T) {
+		checkURLIsDeleted := func(shortURL string) bool {
+			w := httptest.NewRecorder()
+			router := mux.NewRouter()
+			router.HandleFunc("/{urlID}/", handler.GetURLByIDHandler()).Methods(http.MethodGet)
+			request := httptest.NewRequest(http.MethodGet, shortURL, nil)
+			router.Use(handler.CookieAuthenticationMiddleware)
+			router.ServeHTTP(w, request)
+			response := w.Result()
+			defer response.Body.Close()
+			return response.StatusCode == http.StatusGone
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		for {
+			select {
+			case <-ctx.Done():
+				t.Error("not all urls are deleted")
+				return
+			default:
+				deletedURLsCount := 0
+				for _, shortURL := range testURLs {
+					if checkURLIsDeleted(shortURL) {
+						deletedURLsCount++
+					}
+				}
+				if deletedURLsCount == len(testURLs) {
+					return
+				}
+			}
+		}
+	})
 }

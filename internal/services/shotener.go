@@ -6,23 +6,35 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
+	"strings"
+	"time"
 
+	"github.com/sirupsen/logrus"
+
+	"github.com/maxsnegir/url-shortener/internal/logging"
 	"github.com/maxsnegir/url-shortener/internal/storage"
 )
 
-type URLService interface {
-	SaveData(ctx context.Context, userToken, shortURL string) (string, error)
+type ShortenerService interface {
+	SaveData(ctx context.Context, userToken, originalURL string) (string, error)
 	SaveDataBatch(ctx context.Context, userToken string, originalURLs []URLDataBatchRequest) ([]URLDataBatchResponse, error)
-	GetOriginalURL(ctx context.Context, shortURLID string) (string, error)
+	GetOriginalURL(ctx context.Context, shortURLID string) (storage.URLData, error)
 	GetUserURLs(ctx context.Context, userToken string) ([]storage.URLData, error)
 	GetHostURL() string
 	IsURLValid(url string) error
 	Ping(ctx context.Context) error
+	DeleteURLs(urlIDsToDel []string)
+	GetURLIdFromShortURL(shortURL string) string
+	Shutdown(ctx context.Context) error
 }
 
+const BatchSizeForDelete = 100
+
 type shortener struct {
-	storage storage.ShortenerStorage
-	hostURL string
+	storage           storage.ShortenerStorage
+	hostURL           string
+	logger            *logrus.Logger
+	urlsToDeleteQueue chan []string
 }
 
 type URLDataBatchRequest struct {
@@ -95,12 +107,12 @@ func (s *shortener) getURLHash(URL string) string {
 	return sha[:8]
 }
 
-func (s *shortener) GetOriginalURL(ctx context.Context, shortURL string) (string, error) {
-	originalURL, err := s.storage.GetOriginalURL(ctx, shortURL)
+func (s *shortener) GetOriginalURL(ctx context.Context, shortURL string) (storage.URLData, error) {
+	urlData, err := s.storage.GetOriginalURL(ctx, shortURL)
 	if err != nil {
-		return "", OriginalURLNotFound{shortURL}
+		return urlData, OriginalURLNotFound{shortURL}
 	}
-	return originalURL, nil
+	return urlData, nil
 }
 
 func (s *shortener) GetUserURLs(ctx context.Context, userToken string) ([]storage.URLData, error) {
@@ -111,9 +123,55 @@ func (s *shortener) Ping(ctx context.Context) error {
 	return s.storage.Ping(ctx)
 }
 
-func NewShortener(urlStorage storage.ShortenerStorage, hostURL string) URLService {
-	return &shortener{
-		storage: urlStorage,
-		hostURL: hostURL,
+func (s *shortener) DeleteURLs(urlIDsToDel []string) {
+	urlsToDelete := make([]string, 0, len(urlIDsToDel))
+	for _, urlID := range urlIDsToDel {
+		urlsToDelete = append(urlsToDelete, fmt.Sprintf("%s/%s/", s.GetHostURL(), urlID))
 	}
+	s.urlsToDeleteQueue <- urlsToDelete
+}
+
+func (s *shortener) deleteURLsInQueue() {
+	for shortURLs := range s.urlsToDeleteQueue {
+		if len(shortURLs) > BatchSizeForDelete {
+			// Если размер батча превышен, грузим остаток снова в канал
+			nextShortURLs := shortURLs[BatchSizeForDelete:]
+			shortURLs = shortURLs[:BatchSizeForDelete]
+			go func() {
+				s.urlsToDeleteQueue <- nextShortURLs
+			}()
+		}
+
+		go func(urls []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := s.storage.DeleteURLs(ctx, urls); err != nil {
+				s.logger.Error(err)
+			}
+		}(shortURLs)
+	}
+}
+
+func (s *shortener) GetURLIdFromShortURL(shortURL string) string {
+	u, err := url.Parse(shortURL)
+	if err != nil {
+		return ""
+	}
+	return strings.Trim(u.Path, "/")
+}
+
+func (s *shortener) Shutdown(ctx context.Context) error {
+	close(s.urlsToDeleteQueue)
+	return nil
+}
+
+func NewShortener(urlStorage storage.ShortenerStorage, hostURL string) ShortenerService {
+	s := &shortener{
+		storage:           urlStorage,
+		hostURL:           hostURL,
+		logger:            logging.NewLogger("info"),
+		urlsToDeleteQueue: make(chan []string),
+	}
+	go s.deleteURLsInQueue() // Запускам горутину, которая читает из канала ссылки для удаления
+	return s
 }

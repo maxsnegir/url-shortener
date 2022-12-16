@@ -57,7 +57,7 @@ func TestFileStorageSetData(t *testing.T) {
 			value: "",
 		},
 	}
-	t.Run("Storage created", func(t *testing.T) {
+	t.Run("storage created", func(t *testing.T) {
 		require.NoError(t, err, "Error while creating storage")
 	})
 
