@@ -14,8 +14,8 @@ import (
 // TestSetURL Проверка того, что данные записываются в хранилище
 func TestSetURL(t *testing.T) {
 	cfg, _ := config.NewConfig()
-	DB := storage.NewURLStorage(storage.NewMapStorage())
-	shortener := NewShortener(DB, cfg.Shortener.BaseURL)
+	db := storage.NewMemoryURLStorage(storage.NewMapStorage())
+	shortener := NewShortener(db, cfg.Shortener.BaseURL)
 	tests := []struct {
 		name     string
 		value    string
@@ -36,17 +36,17 @@ func TestSetURL(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			shortURL, err := shortener.SaveData(context.Background(), "", tt.value)
 			require.NoError(t, err, "Error while set URL")
-			value, err := DB.GetOriginalURL(context.Background(), shortURL)
-			require.NoError(t, err, "Error while get data from DB")
-			assert.Equal(t, tt.expected, value, "unexpected value")
+			urlData, err := db.GetOriginalURL(context.Background(), shortURL)
+			require.NoError(t, err, "Error while get data from db")
+			assert.Equal(t, tt.expected, urlData.OriginalURL, "unexpected value")
 		})
 	}
 }
 
 // TestGetURLByID Проверка того, что shortener возвращает правильные ссылки по ID
 func TestGetURLByID(t *testing.T) {
-	DB := storage.NewURLStorage(storage.NewMapStorage())
-	shortener := NewShortener(DB, config.BaseURL)
+	db := storage.NewMemoryURLStorage(storage.NewMapStorage())
+	shortener := NewShortener(db, config.BaseURL)
 	tests := []struct {
 		name     string
 		value    string
@@ -68,17 +68,17 @@ func TestGetURLByID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			shortURL, err := shortener.SaveData(context.Background(), "", tt.value)
 			require.NoError(t, err, "Error while setting URL")
-			originalURL, err := DB.GetOriginalURL(context.Background(), shortURL)
+			urlData, err := db.GetOriginalURL(context.Background(), shortURL)
 			require.NoError(t, err, "Error while getting original URL")
-			assert.Equal(t, originalURL, tt.expected, "GetURLByID return wrong data")
+			assert.Equal(t, urlData.OriginalURL, tt.expected, "GetURLByID return wrong data")
 		})
 	}
 }
 
 // TestParseURL Проверка того, что правильно проверяется валидность URL
 func TestParseURL(t *testing.T) {
-	DB := storage.NewURLStorage(storage.NewMapStorage())
-	shortener := NewShortener(DB, config.BaseURL)
+	db := storage.NewMemoryURLStorage(storage.NewMapStorage())
+	shortener := NewShortener(db, config.BaseURL)
 	tests := []struct {
 		name      string
 		value     string
@@ -120,7 +120,7 @@ func TestGetAllUserURLs(t *testing.T) {
 		"https://www.mercurial-scm.org": "http://localhost:8080/jdR6WcSi/",
 	}
 
-	db := storage.NewURLStorage(storage.NewMapStorage())
+	db := storage.NewMemoryURLStorage(storage.NewMapStorage())
 	shortener := NewShortener(db, config.BaseURL)
 	for shortURL := range testURLs {
 		_, err := shortener.SaveData(context.Background(), userToken, shortURL)
@@ -160,8 +160,8 @@ func TestGetAllUserURLs(t *testing.T) {
 }
 
 func TestSaveDataBatch(t *testing.T) {
-	DB := storage.NewURLStorage(storage.NewMapStorage())
-	shortener := NewShortener(DB, config.BaseURL)
+	db := storage.NewMemoryURLStorage(storage.NewMapStorage())
+	shortener := NewShortener(db, config.BaseURL)
 	batchRequest := []URLDataBatchRequest{
 		{CorrelationID: "1", OriginalURL: "http://github.com/"},
 		{CorrelationID: "2", OriginalURL: "http://gitlab.com"},
@@ -174,13 +174,13 @@ func TestSaveDataBatch(t *testing.T) {
 		require.NoError(t, err, "error while make batch save")
 		require.Equal(t, len(batchRequest), len(batchResponse))
 
-		for _, urlData := range batchResponse {
-			originalURL, err := shortener.GetOriginalURL(context.Background(), urlData.ShortURL)
+		for _, urlDataResponse := range batchResponse {
+			urlData, err := shortener.GetOriginalURL(context.Background(), urlDataResponse.ShortURL)
 			require.NoError(t, err, "error while getting original url")
 
 			for _, batchReq := range batchRequest {
-				if batchReq.OriginalURL == originalURL {
-					require.Equal(t, batchReq.CorrelationID, urlData.CorrelationID, "CorrelationID in request and response didn't match")
+				if batchReq.OriginalURL == urlData.OriginalURL {
+					require.Equal(t, batchReq.CorrelationID, urlDataResponse.CorrelationID, "CorrelationID in request and response didn't match")
 					break
 				}
 			}

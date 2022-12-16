@@ -2,19 +2,27 @@ package storage
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 type PostgresStorage struct {
 	db *sqlx.DB
 }
 
-func (ps *PostgresStorage) GetOriginalURL(ctx context.Context, shortURL string) (string, error) {
-	const query = "SELECT original_url FROM url_data ud WHERE ud.short_url=$1;"
-	var originalURL string
-	err := ps.db.GetContext(ctx, &originalURL, query, shortURL)
-	return originalURL, err
+func (ps *PostgresStorage) GetOriginalURL(ctx context.Context, shortURL string) (URLData, error) {
+	const query = "SELECT original_url, deleted FROM url_data ud WHERE ud.short_url=$1;"
+	urlData := URLData{
+		ShortURL: shortURL,
+	}
+	err := ps.db.GetContext(ctx, &urlData, query, shortURL)
+	if err != nil && errors.Is(err, sql.ErrNoRows) {
+		return urlData, NewOriginalURLNotFound(shortURL)
+	}
+	return urlData, err
 }
 
 func (ps *PostgresStorage) SaveData(ctx context.Context, userToken string, urlData URLData) (err error) {
@@ -96,16 +104,31 @@ func (ps *PostgresStorage) Ping(ctx context.Context) error {
 	return ps.db.PingContext(ctx)
 }
 
-func (ps *PostgresStorage) Shutdown(ctx context.Context) error {
+func (ps *PostgresStorage) Shutdown() error {
 	return ps.db.Close()
 }
 
+func (ps *PostgresStorage) DeleteURLs(ctx context.Context, urlsToDelete []string) error {
+	const query = `UPDATE url_data SET deleted = True  WHERE short_url = any($1);`
+	tx, err := ps.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	_, err = ps.db.Exec(query, pq.Array(urlsToDelete))
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+
+}
 func (ps *PostgresStorage) initPostgresStorage(ctx context.Context) {
 	const schema = `
 		CREATE TABLE IF NOT EXISTS url_data (
 		    url_data_id SERIAL PRIMARY KEY,
 		    short_url VARCHAR(255) UNIQUE,
-		    original_url VARCHAR(255) NOT NULL
+		    original_url VARCHAR(255) NOT NULL,
+		    deleted BOOLEAN NOT NULL DEFAULT FALSE
 		);
 		CREATE TABLE IF NOT EXISTS user_url (
 		    user_token VARCHAR(36) NOT NULL,
