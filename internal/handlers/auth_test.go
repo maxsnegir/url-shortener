@@ -17,7 +17,7 @@ import (
 
 // TestCookieAuthMiddleware проверяем наличие возвращаемой куки авторизации
 func TestCookieAuthMiddleware(t *testing.T) {
-	urlStorage := storage.NewURLStorage(storage.NewMapStorage())
+	urlStorage := storage.NewMemoryURLStorage(storage.NewMapStorage())
 	shortener := services.NewShortener(urlStorage, config.BaseURL)
 	authorization, _ := auth.NewCookieAuthentication("secret")
 	handler := NewURLHandler(shortener, authorization, logrus.New())
@@ -73,7 +73,7 @@ func TestCookieAuthMiddleware(t *testing.T) {
 
 // TestAuthToken проверяем, что приходит нужная кука
 func TestAuthToken(t *testing.T) {
-	urlStorage := storage.NewURLStorage(storage.NewMapStorage())
+	urlStorage := storage.NewMemoryURLStorage(storage.NewMapStorage())
 	shortener := services.NewShortener(urlStorage, config.BaseURL)
 	authorization, _ := auth.NewCookieAuthentication("secret")
 	handler := NewURLHandler(shortener, authorization, logrus.New())

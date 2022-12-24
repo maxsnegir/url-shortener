@@ -14,7 +14,7 @@ const (
 	DatabaseDsn     = ""
 )
 
-// Config общие настройки для сервиса
+// Config common settings
 type Config struct {
 	Server struct {
 		ServerAddress string
@@ -34,7 +34,7 @@ type Config struct {
 	}
 }
 
-// NewConfig создание нового конфига настроек
+// NewConfig create new settings config
 func NewConfig() (Config, error) {
 	var cfg Config
 	if err := env.Parse(&cfg); err != nil {

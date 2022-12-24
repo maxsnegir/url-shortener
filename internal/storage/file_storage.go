@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"context"
 	"encoding/json"
 
 	"github.com/maxsnegir/url-shortener/internal/utils"
@@ -13,18 +12,18 @@ type FileData struct {
 }
 
 type FileStorage struct {
-	FilePath   string
-	FileWriter *utils.FileWriter
-	FileReader *utils.FileReader
-	Storage    Storage // In-memory storage
+	filePath   string
+	fileWriter *utils.FileWriter
+	fileReader *utils.FileReader
+	storage    Storage // In-memory storage
 }
 
 func (s *FileStorage) Get(key string) ([]byte, error) {
-	return s.Storage.Get(key)
+	return s.storage.Get(key)
 }
 
 func (s *FileStorage) Set(key string, value []byte) error {
-	if err := s.Storage.Set(key, value); err != nil {
+	if err := s.storage.Set(key, value); err != nil {
 		return nil
 	}
 	fileData := &FileData{
@@ -35,13 +34,13 @@ func (s *FileStorage) Set(key string, value []byte) error {
 	if err != nil {
 		return err
 	}
-	return s.FileWriter.Write(encodedData)
+	return s.fileWriter.Write(encodedData)
 }
 
 func (s *FileStorage) loadDumpFromFile() error {
 	for {
 		fileData := &FileData{}
-		encodedData, err := s.FileReader.Read()
+		encodedData, err := s.fileReader.Read()
 		if err != nil {
 			return err
 		}
@@ -51,17 +50,17 @@ func (s *FileStorage) loadDumpFromFile() error {
 		if err := json.Unmarshal(encodedData, &fileData); err != nil {
 			return err
 		}
-		if err := s.Storage.Set(fileData.Key, fileData.Value); err != nil {
+		if err := s.storage.Set(fileData.Key, fileData.Value); err != nil {
 			return nil
 		}
 	}
 	return nil
 }
-func (s *FileStorage) Shutdown(ctx context.Context) error {
-	if err := s.FileWriter.Close(); err != nil {
+func (s *FileStorage) Shutdown() error {
+	if err := s.fileWriter.Close(); err != nil {
 		return err
 	}
-	if err := s.FileReader.Close(); err != nil {
+	if err := s.fileReader.Close(); err != nil {
 		return err
 	}
 	return nil
@@ -77,10 +76,10 @@ func NewURLFileStorage(filePath string) (Storage, error) {
 		return nil, err
 	}
 	fileStorage := &FileStorage{
-		FilePath:   filePath,
-		FileWriter: fileWriter,
-		FileReader: fileReader,
-		Storage:    NewMapStorage(),
+		filePath:   filePath,
+		fileWriter: fileWriter,
+		fileReader: fileReader,
+		storage:    NewMapStorage(),
 	}
 	if err := fileStorage.loadDumpFromFile(); err != nil {
 		return fileStorage, LoadingDumbDataError{err: err}

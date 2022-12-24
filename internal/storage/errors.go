@@ -40,3 +40,17 @@ func (e DuplicateURLErr) Error() string {
 func NewDuplicateError(url string) error {
 	return &DuplicateURLErr{URL: url}
 }
+
+type OriginalURLNotFound struct {
+	URLID string
+}
+
+func (e OriginalURLNotFound) Error() string {
+	return fmt.Sprintf("Original url for '%s' not found", e.URLID)
+}
+
+func NewOriginalURLNotFound(shortURL string) *OriginalURLNotFound {
+	return &OriginalURLNotFound{
+		URLID: shortURL,
+	}
+}
